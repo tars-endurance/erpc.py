@@ -1,19 +1,18 @@
 """eRPC process lifecycle manager.
 
-Inspired by py-geth's BaseGethProcess pattern.
+Inspired by `py-geth <https://github.com/ethereum/py-geth>`_'s BaseGethProcess pattern.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import shutil
 import signal
 import subprocess
 import time
-from pathlib import Path
-from types import TracebackType
-from typing import Optional
+from typing import TYPE_CHECKING
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -25,25 +24,37 @@ from erpc.exceptions import (
     ERPCStartupError,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+    from types import TracebackType
+
 logger = logging.getLogger(__name__)
 
-# Default binary name
 ERPC_BINARY = "erpc"
+"""Default binary name to search for on PATH."""
 
 
-def find_erpc_binary(binary_path: Optional[str] = None) -> str:
+def find_erpc_binary(binary_path: str | None = None) -> str:
     """Locate the eRPC binary.
 
     Checks (in order):
-    1. Explicit binary_path argument
-    2. ERPC_BINARY environment variable
-    3. Common install locations
-    4. System PATH via shutil.which
+
+    1. Explicit ``binary_path`` argument.
+    2. ``ERPC_BINARY`` environment variable.
+    3. Common install locations (``/usr/local/bin``, ``/usr/bin``).
+    4. System ``PATH`` via :func:`shutil.which`.
+
+    Args:
+        binary_path: Explicit path to the eRPC binary.
+
+    Returns:
+        Absolute path to the eRPC binary.
 
     Raises:
-        ERPCNotFound: If the binary cannot be located.
+        ERPCNotFound: If the binary cannot be located anywhere.
+
     """
-    candidates = []
+    candidates: list[str] = []
 
     if binary_path:
         candidates.append(binary_path)
@@ -52,7 +63,6 @@ def find_erpc_binary(binary_path: Optional[str] = None) -> str:
     if env_binary:
         candidates.append(env_binary)
 
-    # Common locations
     candidates.extend(
         [
             "/usr/local/bin/erpc",
@@ -65,7 +75,6 @@ def find_erpc_binary(binary_path: Optional[str] = None) -> str:
         if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
             return candidate
 
-    # Fall back to PATH
     found = shutil.which(ERPC_BINARY) or shutil.which("erpc-server")
     if found:
         return found
@@ -79,42 +88,52 @@ def find_erpc_binary(binary_path: Optional[str] = None) -> str:
 class ERPCProcess:
     """Manages an eRPC instance as a subprocess.
 
-    Usage:
-        # Context manager (recommended)
-        with ERPCProcess(upstreams={1: ["https://..."]}) as erpc:
-            url = erpc.endpoint_url(1)
+    Supports both context-manager and manual lifecycle patterns.
 
-        # Manual lifecycle
-        erpc = ERPCProcess(config=my_config)
-        erpc.start()
-        erpc.wait_for_health()
-        ...
-        erpc.stop()
+    Examples:
+        Context manager (recommended)::
+
+            with ERPCProcess(upstreams={1: ["https://..."]}) as erpc:
+                url = erpc.endpoint_url(1)
+
+        Manual lifecycle::
+
+            erpc = ERPCProcess(config=my_config)
+            erpc.start()
+            erpc.wait_for_health()
+            ...
+            erpc.stop()
+
     """
 
-    _proc: Optional[subprocess.Popen] = None
-    _config_path: Optional[Path] = None
+    _proc: subprocess.Popen[bytes] | None = None
+    _config_path: Path | None = None
 
     def __init__(
         self,
-        config: Optional[ERPCConfig] = None,
-        upstreams: Optional[dict[int, list[str]]] = None,
-        binary_path: Optional[str] = None,
+        config: ERPCConfig | None = None,
+        upstreams: dict[int, list[str]] | None = None,
+        binary_path: str | None = None,
         stdin: int = subprocess.DEVNULL,
         stdout: int = subprocess.PIPE,
         stderr: int = subprocess.PIPE,
-    ):
+    ) -> None:
         """Initialize ERPCProcess.
 
-        Provide either a full ERPCConfig or just upstreams for quick setup.
+        Provide either a full ``ERPCConfig`` or just ``upstreams`` for quick setup.
 
         Args:
-            config: Full eRPC configuration. Takes precedence over upstreams.
-            upstreams: Quick setup — mapping of chain_id → endpoint URLs.
+            config: Full eRPC configuration. Takes precedence over ``upstreams``.
+            upstreams: Quick setup — mapping of chain_id to endpoint URLs.
             binary_path: Path to eRPC binary (auto-detected if not set).
             stdin: Subprocess stdin file descriptor.
             stdout: Subprocess stdout file descriptor.
             stderr: Subprocess stderr file descriptor.
+
+        Raises:
+            ValueError: If neither ``config`` nor ``upstreams`` is provided.
+            ERPCNotFound: If the eRPC binary cannot be located.
+
         """
         if config is not None:
             self.config = config
@@ -130,24 +149,27 @@ class ERPCProcess:
 
     @property
     def is_running(self) -> bool:
+        """Whether the eRPC subprocess is currently running."""
         return self._proc is not None and self._proc.poll() is None
 
     @property
     def is_alive(self) -> bool:
-        """Check if process is running AND healthy."""
+        """Whether the process is running AND the health endpoint responds."""
         return self.is_running and self.is_healthy
 
     @property
     def is_healthy(self) -> bool:
-        """Check eRPC health endpoint."""
+        """Whether the eRPC health endpoint responds successfully."""
         try:
             urlopen(self.config.health_url, timeout=2)
-            return True
         except (URLError, OSError):
             return False
+        else:
+            return True
 
     @property
-    def pid(self) -> Optional[int]:
+    def pid(self) -> int | None:
+        """PID of the running eRPC process, or ``None``."""
         return self._proc.pid if self._proc else None
 
     @property
@@ -156,7 +178,15 @@ class ERPCProcess:
         return f"http://{self.config.server_host}:{self.config.server_port}"
 
     def endpoint_url(self, chain_id: int) -> str:
-        """Get the proxied endpoint URL for a specific chain."""
+        """Get the proxied endpoint URL for a specific chain.
+
+        Args:
+            chain_id: EVM chain identifier.
+
+        Returns:
+            Full URL for the proxied RPC endpoint.
+
+        """
         return self.config.endpoint_url(chain_id)
 
     def start(self) -> None:
@@ -164,15 +194,15 @@ class ERPCProcess:
 
         Raises:
             ERPCStartupError: If the process fails to start or is already running.
+
         """
         if self.is_running:
             raise ERPCStartupError("eRPC is already running")
 
-        # Write config to temp file
         self._config_path = self.config.write()
         command = [self.binary, str(self._config_path)]
 
-        logger.info(f"Starting eRPC: {' '.join(command)}")
+        logger.info("Starting eRPC: %s", " ".join(command))
         try:
             self._proc = subprocess.Popen(
                 command,
@@ -193,15 +223,19 @@ class ERPCProcess:
                 f"eRPC exited immediately (code {self._proc.returncode}): {stderr_output}"
             )
 
-        logger.info(f"eRPC started (PID {self._proc.pid})")
+        logger.info("eRPC started (PID %s)", self._proc.pid)
 
     def stop(self, timeout: int = 5) -> None:
         """Stop the eRPC process gracefully.
 
-        Sends SIGTERM, waits up to `timeout` seconds, then SIGKILL.
+        Sends ``SIGTERM``, waits up to ``timeout`` seconds, then ``SIGKILL``.
+
+        Args:
+            timeout: Seconds to wait for graceful shutdown.
 
         Raises:
             ERPCNotRunning: If the process is not running.
+
         """
         if not self._proc:
             raise ERPCNotRunning("eRPC is not running")
@@ -211,7 +245,7 @@ class ERPCProcess:
             self._cleanup()
             return
 
-        logger.info(f"Stopping eRPC (PID {self._proc.pid})...")
+        logger.info("Stopping eRPC (PID %s)...", self._proc.pid)
         self._proc.send_signal(signal.SIGTERM)
 
         try:
@@ -225,7 +259,12 @@ class ERPCProcess:
         self._cleanup()
 
     def restart(self, timeout: int = 5) -> None:
-        """Restart the eRPC process."""
+        """Restart the eRPC process.
+
+        Args:
+            timeout: Seconds to wait for graceful shutdown before restart.
+
+        """
         if self.is_running:
             self.stop(timeout=timeout)
         self.start()
@@ -239,8 +278,9 @@ class ERPCProcess:
         Raises:
             ERPCHealthCheckError: If health check times out.
             ERPCStartupError: If the process dies during startup.
+
         """
-        logger.info(f"Waiting for eRPC health (timeout: {timeout}s)...")
+        logger.info("Waiting for eRPC health (timeout: %ds)...", timeout)
         deadline = time.monotonic() + timeout
 
         while time.monotonic() < deadline:
@@ -253,21 +293,18 @@ class ERPCProcess:
 
             time.sleep(0.5)
 
-        raise ERPCHealthCheckError(
-            f"eRPC did not become healthy within {timeout}s"
-        )
+        raise ERPCHealthCheckError(f"eRPC did not become healthy within {timeout}s")
 
     def _cleanup(self) -> None:
         """Clean up temporary config files."""
         if self._config_path and self._config_path.exists():
-            try:
+            with contextlib.suppress(OSError):
                 self._config_path.unlink()
-            except OSError:
-                pass
         self._config_path = None
         self._proc = None
 
     def __enter__(self) -> ERPCProcess:
+        """Start eRPC and wait for health on context entry."""
         self.start()
         self.wait_for_health()
         return self
@@ -278,5 +315,6 @@ class ERPCProcess:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        """Stop eRPC on context exit."""
         if self.is_running:
             self.stop()

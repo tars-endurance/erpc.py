@@ -5,14 +5,20 @@ from __future__ import annotations
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import yaml
 
 
 @dataclass
 class CacheConfig:
-    """Memory cache configuration."""
+    """Memory cache configuration for eRPC.
+
+    Attributes:
+        max_items: Maximum number of items to store in memory cache.
+        method_ttls: Per-method TTL overrides in seconds. Use ``0`` to disable caching.
+
+    """
 
     max_items: int = 10_000
     method_ttls: dict[str, int] = field(default_factory=dict)
@@ -20,19 +26,25 @@ class CacheConfig:
 
 @dataclass
 class ERPCConfig:
-    """eRPC configuration.
+    """eRPC configuration builder.
 
-    Generates an erpc.yaml config file from Python dataclasses.
+    Generates an ``erpc.yaml`` config file from Python dataclasses.
 
     Args:
         project_id: Unique project identifier for eRPC routing.
-        upstreams: Mapping of chain ID → list of RPC endpoint URLs.
+        upstreams: Mapping of chain ID to list of RPC endpoint URLs.
         server_host: eRPC server bind address.
         server_port: eRPC server listen port.
         metrics_host: Metrics endpoint bind address.
         metrics_port: Metrics endpoint listen port.
         log_level: Logging verbosity (trace, debug, info, warn, error).
         cache: Memory cache configuration.
+
+    Examples:
+        >>> config = ERPCConfig(upstreams={1: ["https://eth.llamarpc.com"]})
+        >>> config.endpoint_url(1)
+        'http://127.0.0.1:4000/py-erpc/evm/1'
+
     """
 
     project_id: str = "py-erpc"
@@ -46,15 +58,29 @@ class ERPCConfig:
 
     @property
     def health_url(self) -> str:
+        """HTTP URL for the eRPC health endpoint."""
         return f"http://{self.server_host}:{self.server_port}/"
 
     def endpoint_url(self, chain_id: int) -> str:
-        """Get the proxied endpoint URL for a specific chain."""
+        """Get the proxied endpoint URL for a specific chain.
+
+        Args:
+            chain_id: EVM chain identifier.
+
+        Returns:
+            Full URL for the proxied RPC endpoint.
+
+        """
         return f"http://{self.server_host}:{self.server_port}/{self.project_id}/evm/{chain_id}"
 
     def to_yaml(self) -> str:
-        """Generate eRPC YAML configuration."""
-        doc = {
+        """Generate eRPC YAML configuration string.
+
+        Returns:
+            YAML-formatted configuration document.
+
+        """
+        doc: dict[str, Any] = {
             "logLevel": self.log_level,
             "server": {
                 "httpHost": self.server_host,
@@ -70,10 +96,15 @@ class ERPCConfig:
         }
         return yaml.dump(doc, default_flow_style=False, sort_keys=False)
 
-    def write(self, path: Optional[Path] = None) -> Path:
-        """Write config to a YAML file. Returns the path.
+    def write(self, path: Path | None = None) -> Path:
+        """Write config to a YAML file.
 
-        If no path is given, writes to a temporary file.
+        Args:
+            path: Destination file path. If ``None``, writes to a temporary file.
+
+        Returns:
+            Path to the written configuration file.
+
         """
         if path is None:
             fd = tempfile.NamedTemporaryFile(
@@ -88,11 +119,11 @@ class ERPCConfig:
             path.write_text(self.to_yaml())
             return path
 
-    def _build_project(self) -> dict:
+    def _build_project(self) -> dict[str, Any]:
         """Build a single eRPC project definition."""
-        networks = []
+        networks: list[dict[str, Any]] = []
         for chain_id, endpoints in self.upstreams.items():
-            upstreams = []
+            upstreams: list[dict[str, str]] = []
             for i, url in enumerate(endpoints):
                 upstreams.append(
                     {
@@ -100,24 +131,22 @@ class ERPCConfig:
                         "id": f"upstream-{chain_id}-{i}",
                     }
                 )
-            network = {
+            network: dict[str, Any] = {
                 "architecture": "evm",
                 "evm": {"chainId": chain_id},
                 "upstreams": upstreams,
             }
 
-            # Apply method-level cache TTLs if configured
             if self.cache.method_ttls:
                 network["policies"] = self._build_cache_policies()
 
             networks.append(network)
 
-        project = {
+        project: dict[str, Any] = {
             "id": self.project_id,
             "networks": networks,
         }
 
-        # Global cache config
         if self.cache.max_items > 0:
             project["cacheConfig"] = {
                 "connectors": [
@@ -131,9 +160,9 @@ class ERPCConfig:
 
         return project
 
-    def _build_cache_policies(self) -> list[dict]:
+    def _build_cache_policies(self) -> list[dict[str, Any]]:
         """Build cache policy rules from method TTL overrides."""
-        policies = []
+        policies: list[dict[str, Any]] = []
         for method, ttl in self.cache.method_ttls.items():
             if ttl == 0:
                 policies.append(

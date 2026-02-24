@@ -12,17 +12,31 @@ requires-python = ">=3.10"
 authors = [
     {name = "TARS", email = "tars@endurance.sh"},
 ]
-keywords = ["ethereum", "evm", "rpc", "proxy", "cache", "erpc", "web3"]
+keywords = [
+    "ethereum",
+    "evm",
+    "rpc",
+    "proxy",
+    "cache",
+    "erpc",
+    "web3",
+    "blockchain",
+    "subprocess",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "pyyaml>=6.0",
@@ -32,15 +46,77 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14",
+    "pre-commit>=4.0",
+    "types-PyYAML>=6.0",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
 ]
 
 [project.urls]
 Homepage = "https://github.com/tars-endurance/erpc.py"
+Documentation = "https://tars-endurance.github.io/erpc.py"
 Repository = "https://github.com/tars-endurance/erpc.py"
 Issues = "https://github.com/tars-endurance/erpc.py/issues"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
+Changelog = "https://github.com/tars-endurance/erpc.py/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["erpc*"]
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py310"
+line-length = 99
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "RUF",  # ruff-specific rules
+    "D",    # pydocstyle
+]
+ignore = [
+    "D100",  # missing docstring in public module
+    "D104",  # missing docstring in public package
+    "D203",  # one-blank-line-before-class (conflicts with D211)
+    "D213",  # multi-line-summary-second-line (conflicts with D212)
+    "N818",  # exception naming — public API uses ERPCNotFound/ERPCNotRunning
+    "SIM115",  # context manager for NamedTemporaryFile — not applicable here
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=erpc --cov-report=term-missing --cov-report=html --cov-fail-under=90"
