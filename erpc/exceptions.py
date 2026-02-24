@@ -19,3 +19,7 @@ class ERPCStartupError(ERPCError):
 
 class ERPCHealthCheckError(ERPCError):
     """eRPC health check failed or timed out."""
+
+
+class ERPCConfigError(ERPCError):
+    """Invalid or malformed eRPC configuration."""

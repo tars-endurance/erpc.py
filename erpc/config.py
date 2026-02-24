@@ -1,13 +1,16 @@
-"""eRPC configuration generation."""
+"""eRPC configuration generation and loading."""
 
 from __future__ import annotations
 
 import tempfile
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from erpc.exceptions import ERPCConfigError
 
 
 @dataclass
@@ -55,6 +58,110 @@ class ERPCConfig:
     metrics_port: int = 4001
     log_level: str = "warn"
     cache: CacheConfig = field(default_factory=CacheConfig)
+
+    @classmethod
+    def from_yaml(cls, path: str | Path) -> ERPCConfig:
+        """Load an ERPCConfig from an existing erpc.yaml file.
+
+        Args:
+            path: Path to the YAML configuration file.
+
+        Returns:
+            Parsed configuration object.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ERPCConfigError: If the YAML is malformed or missing required keys.
+
+        Examples:
+            >>> config = ERPCConfig.from_yaml("erpc.yaml")
+            >>> config.project_id
+            'my-project'
+
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+        try:
+            data = yaml.safe_load(path.read_text())
+        except yaml.YAMLError as exc:
+            raise ERPCConfigError(f"Invalid YAML in {path}: {exc}") from exc
+        if not isinstance(data, dict):
+            raise ERPCConfigError(f"Expected YAML mapping, got {type(data).__name__}")
+        return cls.from_dict(data)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ERPCConfig:
+        """Construct an ERPCConfig from a plain dictionary.
+
+        Args:
+            data: Dictionary matching the eRPC YAML schema.
+
+        Returns:
+            Parsed configuration object.
+
+        Raises:
+            ERPCConfigError: If the dictionary is missing required keys.
+
+        Examples:
+            >>> config = ERPCConfig.from_dict({"projects": [{"id": "x", "networks": []}]})
+            >>> config.project_id
+            'x'
+
+        """
+        if "projects" not in data or not data["projects"]:
+            raise ERPCConfigError("Config must contain a non-empty 'projects' list")
+
+        project = data["projects"][0]
+        server = data.get("server", {})
+        metrics = data.get("metrics", {})
+
+        # Parse upstreams from networks
+        upstreams: dict[int, list[str]] = {}
+        for network in project.get("networks", []):
+            evm = network.get("evm", {})
+            chain_id = evm.get("chainId")
+            if chain_id is not None:
+                endpoints = [u["endpoint"] for u in network.get("upstreams", [])]
+                upstreams[chain_id] = endpoints
+
+        # Parse cache config
+        cache_config = CacheConfig()
+        cache_data = project.get("cacheConfig", {})
+        connectors = cache_data.get("connectors", [])
+        if connectors:
+            memory = connectors[0].get("memory", {})
+            max_items = memory.get("maxItems", 10_000)
+            cache_config = CacheConfig(max_items=max_items)
+
+        return cls(
+            project_id=project.get("id", "py-erpc"),
+            upstreams=upstreams,
+            server_host=server.get("httpHost", "127.0.0.1"),
+            server_port=server.get("httpPort", 4000),
+            metrics_host=metrics.get("host", "127.0.0.1"),
+            metrics_port=metrics.get("port", 4001),
+            log_level=data.get("logLevel", "warn"),
+            cache=cache_config,
+        )
+
+    def validate(self) -> None:
+        """Validate this configuration, raising on errors and warning on issues.
+
+        Raises:
+            ERPCConfigError: If the configuration is invalid.
+
+        Examples:
+            >>> config = ERPCConfig(upstreams={1: ["https://rpc.example.com"]})
+            >>> config.validate()  # no error
+
+        """
+        if not self.upstreams:
+            warnings.warn(
+                "No upstreams configured — eRPC will have no RPC endpoints to proxy",
+                UserWarning,
+                stacklevel=2,
+            )
 
     @property
     def health_url(self) -> str:
