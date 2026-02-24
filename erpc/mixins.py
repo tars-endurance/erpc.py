@@ -27,6 +27,7 @@ class LoggingMixin:
             class MyProcess(LoggingMixin):
                 pass
 
+
             proc = MyProcess(logger_name="my.erpc", log_file="/tmp/erpc.log")
             proc.logger.info("hello")
 
@@ -39,6 +40,15 @@ class LoggingMixin:
         log_file: str | None = None,
         **kwargs: object,
     ) -> None:
+        """Initialize the logging mixin.
+
+        Args:
+            *args: Passed to the next class in MRO.
+            logger_name: Name for the logger (default: ``"erpc"``).
+            log_file: Optional path to a log file.
+            **kwargs: Passed to the next class in MRO.
+
+        """
         self._logger = logging.getLogger(logger_name)
         if log_file is not None:
             handler = logging.FileHandler(log_file)
