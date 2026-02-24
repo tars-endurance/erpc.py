@@ -8,12 +8,12 @@ non-JSON lines.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import threading
 from typing import IO
-
 
 #: Mapping from eRPC log level strings to Python logging levels.
 ERPC_LEVEL_MAP: dict[str, int] = {
@@ -40,6 +40,7 @@ class ERPCLogStream(threading.Thread):
         ::
 
             import os, logging
+
             read_fd, write_fd = os.pipe()
             stream = ERPCLogStream(read_fd, logger=logging.getLogger("erpc"))
             stream.start()
@@ -47,6 +48,13 @@ class ERPCLogStream(threading.Thread):
     """
 
     def __init__(self, fd: int, *, logger: logging.Logger) -> None:
+        """Initialize the log stream reader.
+
+        Args:
+            fd: File descriptor number to read from.
+            logger: Logger instance to emit records to.
+
+        """
         super().__init__(daemon=True)
         self._fd = fd
         self._logger = logger
@@ -55,7 +63,10 @@ class ERPCLogStream(threading.Thread):
 
     def run(self) -> None:
         """Read lines from the pipe until EOF or stop is requested."""
-        self._stream = os.fdopen(self._fd, "rb")
+        try:
+            self._stream = os.fdopen(self._fd, "rb")
+        except OSError:
+            return
         try:
             for raw_line in self._stream:
                 if self._stop_event.is_set():
@@ -94,12 +105,16 @@ class ERPCLogStream(threading.Thread):
         Safe to call multiple times. Blocks briefly for the thread to finish.
         """
         self._stop_event.set()
-        self._close_stream()
+        # Close the stream (or raw fd) to unblock any pending read.
+        if self._stream is not None:
+            with contextlib.suppress(OSError):
+                self._stream.close()
+        else:
+            with contextlib.suppress(OSError):
+                os.close(self._fd)
 
     def _close_stream(self) -> None:
         """Close the underlying stream, ignoring errors."""
         if self._stream is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._stream.close()
-            except OSError:
-                pass

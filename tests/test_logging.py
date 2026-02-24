@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import logging.handlers
 import os
-import tempfile
-import threading
-import time
-from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from erpc.logging import ERPCLogStream
+from erpc.mixins import LoggingMixin
+from erpc.process import ERPCProcess
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 
 class TestERPCLogStream:
@@ -155,13 +153,9 @@ class TestERPCLogStream:
         stream.join(timeout=2)
 
         assert not stream.is_alive()
-        # Clean up write end
-        with pytest.raises(OSError):
-            os.close(write_fd)  # May already be closed
-
-
-# Need to import after writing the module
-import logging.handlers  # noqa: E402
+        # Clean up write end (ignore if already closed)
+        with contextlib.suppress(OSError):
+            os.close(write_fd)
 
 
 class TestLoggingMixin:
@@ -169,7 +163,6 @@ class TestLoggingMixin:
 
     def test_logging_mixin_attaches_to_process(self) -> None:
         """LoggingMixin wires up log capture on start()."""
-        from erpc.mixins import LoggingMixin
 
         class MockProcess(LoggingMixin):
             pass
@@ -179,7 +172,6 @@ class TestLoggingMixin:
 
     def test_logging_mixin_custom_logger(self) -> None:
         """Can pass a custom logger name."""
-        from erpc.mixins import LoggingMixin
 
         class MockProcess(LoggingMixin):
             pass
@@ -187,20 +179,15 @@ class TestLoggingMixin:
         proc = MockProcess(logger_name="my.custom.logger")
         assert proc.logger.name == "my.custom.logger"
 
-    def test_logging_mixin_log_to_file(self, tmp_path: "tempfile.TemporaryDirectory") -> None:
+    def test_logging_mixin_log_to_file(self, tmp_path: Path) -> None:
         """Optional file handler can be configured."""
-        from erpc.mixins import LoggingMixin
-
-        log_file = tmp_path / "erpc.log"  # type: ignore[operator]
+        log_file = tmp_path / "erpc.log"
 
         class MockProcess(LoggingMixin):
             pass
 
         proc = MockProcess(logger_name="test.mixin.file", log_file=str(log_file))
-        # File handler should be attached
-        file_handlers = [
-            h for h in proc.logger.handlers if isinstance(h, logging.FileHandler)
-        ]
+        file_handlers = [h for h in proc.logger.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) == 1
         assert file_handlers[0].baseFilename == str(log_file)
 
@@ -215,9 +202,6 @@ class TestProcessWithLogging:
     @patch("erpc.process.subprocess.Popen")
     def test_process_with_logging(self, mock_popen: MagicMock) -> None:
         """ERPCProcess integrates logging — captures stdout/stderr from subprocess."""
-        from erpc.process import ERPCProcess
-
-        # Create pipes to simulate subprocess output
         stderr_read, stderr_write = os.pipe()
         stdout_read, stdout_write = os.pipe()
 
@@ -231,12 +215,11 @@ class TestProcessWithLogging:
         with patch("erpc.process.find_erpc_binary", return_value="/usr/bin/erpc"):
             process = ERPCProcess(upstreams={1: ["https://eth.example.com"]})
 
-        # Write some log output before checking
         log_line = json.dumps({"level": "info", "msg": "eRPC started"}) + "\n"
         os.write(stderr_write, log_line.encode())
         os.close(stderr_write)
         os.close(stdout_write)
 
-        # Verify ERPCProcess has log_level parameter
+        # Verify ERPCProcess has the expected attributes
         assert hasattr(process, "stdout")
         assert hasattr(process, "stderr")
