@@ -8,6 +8,7 @@ from erpc.exceptions import (
     ERPCNotRunning,
     ERPCStartupError,
 )
+from erpc.monitoring import HealthEvent, HealthMonitor, HealthStatus
 from erpc.process import ERPCProcess
 
 __all__ = [
@@ -19,6 +20,9 @@ __all__ = [
     "ERPCNotRunning",
     "ERPCProcess",
     "ERPCStartupError",
+    "HealthEvent",
+    "HealthMonitor",
+    "HealthStatus",
 ]
 
 __version__ = "0.1.0"
