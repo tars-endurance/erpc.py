@@ -72,7 +72,7 @@ def verify_checksum(path: Path, expected_sha256: str) -> None:
         for chunk in iter(lambda: f.read(8192), b""):
             sha256.update(chunk)
     actual = sha256.hexdigest()
-    if actual != expected_sha256:
+    if actual != expected_sha256.lower():
         raise ERPCError(f"Checksum mismatch for {path}: expected {expected_sha256}, got {actual}")
 
 
@@ -114,7 +114,11 @@ def install_erpc(
     urllib.request.urlretrieve(url, str(dest))
 
     if checksum is not None:
-        verify_checksum(dest, checksum)
+        try:
+            verify_checksum(dest, checksum)
+        except ERPCError:
+            dest.unlink(missing_ok=True)
+            raise
 
     # Make executable
     dest.chmod(dest.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
