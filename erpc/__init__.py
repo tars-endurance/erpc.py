@@ -1,3 +1,5 @@
+"""erpc.py — Python subprocess manager for eRPC."""
+
 from erpc.config import CacheConfig, ERPCConfig
 from erpc.exceptions import (
     ERPCError,
@@ -9,13 +11,13 @@ from erpc.exceptions import (
 from erpc.process import ERPCProcess
 
 __all__ = [
-    "ERPCProcess",
-    "ERPCConfig",
     "CacheConfig",
+    "ERPCConfig",
     "ERPCError",
     "ERPCHealthCheckError",
     "ERPCNotFound",
     "ERPCNotRunning",
+    "ERPCProcess",
     "ERPCStartupError",
 ]
 

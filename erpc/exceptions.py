@@ -1,8 +1,8 @@
-"""py-erpc exceptions."""
+"""erpc.py exception hierarchy."""
 
 
 class ERPCError(Exception):
-    """Base exception for py-erpc."""
+    """Base exception for erpc.py."""
 
 
 class ERPCNotFound(ERPCError):
@@ -18,4 +18,4 @@ class ERPCStartupError(ERPCError):
 
 
 class ERPCHealthCheckError(ERPCError):
-    """eRPC health check failed."""
+    """eRPC health check failed or timed out."""

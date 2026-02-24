@@ -1,7 +1,6 @@
 """Tests for eRPC config generation."""
 
 import yaml
-import pytest
 
 from erpc.config import CacheConfig, ERPCConfig
 
@@ -69,6 +68,21 @@ def test_cache_config():
     assert cache["connectors"][0]["memory"]["maxItems"] == 5000
 
 
+def test_cache_config_defaults():
+    cache = CacheConfig()
+    assert cache.max_items == 10_000
+    assert cache.method_ttls == {}
+
+
+def test_no_cache_config_when_zero_items():
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(max_items=0),
+    )
+    doc = yaml.safe_load(config.to_yaml())
+    assert "cacheConfig" not in doc["projects"][0]
+
+
 def test_method_ttl_overrides():
     config = ERPCConfig(
         upstreams={1: ["https://rpc.example.com"]},
@@ -84,6 +98,9 @@ def test_method_ttl_overrides():
     eth_call_policy = next(p for p in policies if p["method"] == "eth_call")
     assert eth_call_policy["cache"]["ttl"] == "0s"
 
+    eth_logs_policy = next(p for p in policies if p["method"] == "eth_getLogs")
+    assert eth_logs_policy["cache"]["ttl"] == "2s"
+
 
 def test_write_to_path(tmp_path):
     config = ERPCConfig(upstreams={1: ["https://rpc.example.com"]})
@@ -91,6 +108,12 @@ def test_write_to_path(tmp_path):
     assert path.exists()
     doc = yaml.safe_load(path.read_text())
     assert doc["projects"][0]["id"] == "py-erpc"
+
+
+def test_write_to_nested_path(tmp_path):
+    config = ERPCConfig(upstreams={1: ["https://rpc.example.com"]})
+    path = config.write(tmp_path / "sub" / "dir" / "erpc.yaml")
+    assert path.exists()
 
 
 def test_write_to_temp():
