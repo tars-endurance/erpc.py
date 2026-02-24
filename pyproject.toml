@@ -63,6 +63,9 @@ Repository = "https://github.com/tars-endurance/erpc.py"
 Issues = "https://github.com/tars-endurance/erpc.py/issues"
 Changelog = "https://github.com/tars-endurance/erpc.py/blob/main/CHANGELOG.md"
 
+[project.scripts]
+erpc-py = "erpc.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["erpc*"]
 
@@ -119,4 +122,7 @@ disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=erpc --cov-report=term-missing --cov-report=html --cov-fail-under=90"
+addopts = "--cov=erpc --cov-report=term-missing --cov-report=html --cov-fail-under=90 -m 'not integration'"
+markers = [
+    "integration: end-to-end tests requiring an eRPC binary",
+]
