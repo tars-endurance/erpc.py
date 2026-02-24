@@ -223,3 +223,79 @@ class TestProcessWithLogging:
         # Verify ERPCProcess has the expected attributes
         assert hasattr(process, "stdout")
         assert hasattr(process, "stderr")
+
+
+class TestERPCLogStreamEdgeCases:
+    """Edge-case coverage for ERPCLogStream."""
+
+    def test_stop_before_run(self) -> None:
+        """stop() before start() closes the raw fd without error."""
+        read_fd, write_fd = os.pipe()
+        logger = logging.getLogger("test.stopbeforerun")
+        logger.setLevel(logging.DEBUG)
+
+        stream = ERPCLogStream(read_fd, logger=logger)
+        # Don't start — call stop directly (covers else branch in stop())
+        stream.stop()
+
+        with contextlib.suppress(OSError):
+            os.close(write_fd)
+
+    def test_skips_empty_lines(self) -> None:
+        """Empty lines are skipped, not logged."""
+        read_fd, write_fd = os.pipe()
+        logger = logging.getLogger("test.emptylines")
+        logger.setLevel(logging.DEBUG)
+        handler = logging.handlers.MemoryHandler(capacity=100)
+        logger.addHandler(handler)
+
+        stream = ERPCLogStream(read_fd, logger=logger)
+        stream.start()
+
+        os.write(write_fd, b"\n\nactual line\n\n")
+        os.close(write_fd)
+
+        stream.join(timeout=2)
+
+        messages = [r.getMessage() for r in handler.buffer]
+        assert messages == ["actual line"]
+        logger.removeHandler(handler)
+
+    def test_handles_invalid_fd(self) -> None:
+        """Gracefully handles an invalid file descriptor."""
+        logger = logging.getLogger("test.invalidfd")
+        logger.setLevel(logging.DEBUG)
+
+        stream = ERPCLogStream(9999, logger=logger)
+        stream.start()
+        stream.join(timeout=2)
+
+        assert not stream.is_alive()
+
+    def test_stop_event_breaks_loop(self) -> None:
+        """stop_event causes the reader to exit mid-stream."""
+        import time
+
+        read_fd, write_fd = os.pipe()
+        logger = logging.getLogger("test.stopevent")
+        logger.setLevel(logging.DEBUG)
+        handler = logging.handlers.MemoryHandler(capacity=100)
+        logger.addHandler(handler)
+
+        stream = ERPCLogStream(read_fd, logger=logger)
+        stream.start()
+
+        os.write(write_fd, b"line1\n")
+        time.sleep(0.1)
+
+        # Set stop event, then close pipe to unblock read
+        stream._stop_event.set()
+        os.write(write_fd, b"line2\n")
+        os.close(write_fd)
+
+        stream.join(timeout=2)
+        assert not stream.is_alive()
+
+        messages = [r.getMessage() for r in handler.buffer]
+        assert "line1" in messages
+        logger.removeHandler(handler)

@@ -137,6 +137,13 @@ class TestFromYaml:
         with pytest.raises(ERPCConfigError, match="projects"):
             ERPCConfig.from_yaml(path)
 
+    def test_from_yaml_non_mapping(self, tmp_path: Path) -> None:
+        """Raises ERPCConfigError when YAML root is not a mapping."""
+        path = tmp_path / "list.yaml"
+        path.write_text("- item1\n- item2\n")
+        with pytest.raises(ERPCConfigError, match="Expected YAML mapping"):
+            ERPCConfig.from_yaml(path)
+
 
 # ── Dict loading tests ──────────────────────────────────────────────────────
 
