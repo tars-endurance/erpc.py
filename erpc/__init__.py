@@ -1,5 +1,9 @@
 """erpc.py — Python subprocess manager for eRPC."""
 
+#: The eRPC binary version this release of erpc.py is tested and compatible with.
+#: All CI, integration tests, and config generation target this version.
+ERPC_VERSION = "0.0.62"
+
 from erpc.async_process import AsyncERPCProcess
 from erpc.auth import AuthConfig, JWTAuth, NetworkAuth, SecretAuth, SIWEAuth
 from erpc.config import CacheConfig, ERPCConfig

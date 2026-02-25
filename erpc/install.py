@@ -77,7 +77,7 @@ def verify_checksum(path: Path, expected_sha256: str) -> None:
 
 
 def install_erpc(
-    version: str,
+    version: str | None = None,
     install_dir: str = "/usr/local/bin",
     binary_name: str = "erpc",
     checksum: str | None = None,
@@ -85,7 +85,8 @@ def install_erpc(
     """Download and install eRPC binary from GitHub releases.
 
     Args:
-        version: Release version tag (e.g., ``"0.0.62"``).
+        version: Release version tag (e.g., ``"0.0.62"``). Defaults to
+            :data:`erpc.ERPC_VERSION` — the pinned compatible version.
         install_dir: Directory to install the binary. Created if it doesn't exist.
         binary_name: Name for the installed binary.
         checksum: Optional SHA256 hex digest for verification.
@@ -97,13 +98,17 @@ def install_erpc(
         ERPCError: If the platform is unsupported or checksum verification fails.
 
     Examples:
-        >>> install_erpc("0.0.62")
+        >>> install_erpc()  # installs pinned version
         PosixPath('/usr/local/bin/erpc')
 
         >>> install_erpc("0.0.62", checksum="abc123...")
         PosixPath('/usr/local/bin/erpc')
 
     """
+    if version is None:
+        from erpc import ERPC_VERSION
+
+        version = ERPC_VERSION
     artifact = get_platform_binary_name()
     url = f"{GITHUB_RELEASES_URL}/{version}/{artifact}"
     dest_dir = Path(install_dir)

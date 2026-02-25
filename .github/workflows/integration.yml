@@ -22,14 +22,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install eRPC binary
+      - name: Install eRPC binary (pinned version from erpc.ERPC_VERSION)
         run: |
-          ERPC_VERSION="0.0.62"
+          ERPC_VERSION=$(python -c "from erpc import ERPC_VERSION; print(ERPC_VERSION)")
+          echo "Installing eRPC v${ERPC_VERSION}"
           curl -fSL "https://github.com/erpc/erpc/releases/download/${ERPC_VERSION}/erpc_linux_x86_64" \
             -o /tmp/erpc-binary
           chmod +x /tmp/erpc-binary
           sudo mv /tmp/erpc-binary /usr/local/bin/erpc
-          erpc --version || echo "eRPC installed (version flag may not exist)"
+          erpc --version || echo "eRPC v${ERPC_VERSION} installed"
 
       - name: Install Python dependencies
         run: |

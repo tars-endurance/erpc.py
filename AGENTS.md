@@ -79,5 +79,20 @@ Unit tests live in `tests/unit/`, integration in `tests/integration/`. Each unit
 ## Dependencies
 
 - **Runtime:** `pyyaml` only. Do not add runtime dependencies without explicit approval.
+
+## Version Pinning
+
+This package is pinned to a specific eRPC binary version via `erpc.ERPC_VERSION`. This is the **single source of truth** for which eRPC release we target.
+
+- **`erpc/__init__.py`** — defines `ERPC_VERSION` (e.g., `"0.0.62"`)
+- **`install_erpc()`** — defaults to `ERPC_VERSION` when no version is specified
+- **CI integration tests** — read `ERPC_VERSION` from Python to download the correct binary
+- **Config generation** — tested against this version's YAML schema
+
+When upgrading the pinned version:
+1. Update `ERPC_VERSION` in `erpc/__init__.py`
+2. Run integration tests locally with the new binary
+3. Check for any config schema changes in the eRPC changelog
+4. Update DECISIONS.md if the upgrade changes any architectural assumptions
 - **Dev:** pytest, pytest-asyncio, pytest-cov, ruff, mypy, pre-commit, types-PyYAML
 - **Philosophy:** Minimal footprint. This is a thin wrapper, not a framework.
