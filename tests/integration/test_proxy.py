@@ -310,3 +310,42 @@ class TestHealthViaClient:
         """ERPCClient.is_healthy returns True for a running instance."""
         client = erpc_process.client
         assert client.is_healthy
+
+
+class TestDatabaseCacheConfig:
+    """Validate that eRPC accepts configs with database cache section."""
+
+    def test_starts_with_cache_config(self, erpc_binary: str, mock_upstream: MockUpstream) -> None:
+        """eRPC binary starts and becomes healthy with database cache policies."""
+        from erpc.config import CacheConfig
+
+        cache = CacheConfig(
+            max_items=10000,
+            method_ttls={
+                "eth_call": 0,
+                "eth_getLogs": 2,
+                "eth_blockNumber": 4,
+                "eth_gasPrice": 4,
+            },
+        )
+        config = ERPCConfig(
+            upstreams={1: [mock_upstream.url]},
+            server_port=14100,
+            metrics_port=14101,
+            cache=cache,
+        )
+
+        # Verify database section is in the generated config
+        yaml_output = config.to_yaml()
+        assert "database:" in yaml_output
+        assert "evmJsonRpcCache:" in yaml_output
+        assert "memory-cache" in yaml_output
+
+        proc = ERPCProcess(config=config, binary_path=erpc_binary)
+        try:
+            proc.start()
+            proc.wait_for_health(timeout=30)
+            assert proc.is_running, "eRPC should be running with database cache config"
+        finally:
+            if proc.is_running:
+                proc.stop()
