@@ -10,7 +10,12 @@ from unittest.mock import patch
 import pytest
 
 from erpc.exceptions import ERPCError
-from erpc.install import get_platform_binary_name, install_erpc, verify_checksum
+from erpc.install import (
+    PLATFORM_MAP,
+    get_platform_binary_name,
+    install_erpc,
+    verify_checksum,
+)
 
 
 class TestGetPlatformBinaryName:
@@ -191,3 +196,28 @@ class TestVerifyChecksum:
         f.write_bytes(b"hello world")
         with pytest.raises(ERPCError, match="Checksum mismatch"):
             verify_checksum(f, "bad" * 16)
+
+
+class TestPlatformArtifactNames:
+    """Verify PLATFORM_MAP artifact names exist in the actual GitHub release."""
+
+    @pytest.mark.parametrize(
+        "artifact_name",
+        list(PLATFORM_MAP.values()),
+        ids=list(PLATFORM_MAP.values()),
+    )
+    def test_artifact_exists_in_release(self, artifact_name: str) -> None:
+        """Each artifact in PLATFORM_MAP must exist in the pinned eRPC release."""
+        import urllib.request
+
+        from erpc import ERPC_VERSION
+        from erpc.install import GITHUB_RELEASES_URL
+
+        url = f"{GITHUB_RELEASES_URL}/{ERPC_VERSION}/{artifact_name}"
+        req = urllib.request.Request(url, method="HEAD")
+        # GitHub redirects to the CDN; follow redirects
+        try:
+            resp = urllib.request.urlopen(req, timeout=10)
+            assert resp.status == 200, f"Expected 200 for {url}, got {resp.status}"
+        except urllib.error.HTTPError as e:
+            pytest.fail(f"Artifact {artifact_name!r} not found at {url}: {e}")
