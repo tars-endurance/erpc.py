@@ -19,18 +19,21 @@ from erpc import ERPC_VERSION, ERPCConfig, ERPCProcess
 
 def jsonrpc(url: str, method: str, params: list | None = None) -> dict:
     """Send a JSON-RPC request and return the result."""
-    payload = json.dumps({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params or [],
-        "id": 1,
-    }).encode()
+    payload = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or [],
+            "id": 1,
+        }
+    ).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read())
 
 
 def main() -> None:
+    """Run the quickstart example — proxy Ethereum mainnet through eRPC."""
     print(f"erpc.py — targeting eRPC v{ERPC_VERSION}\n")
 
     # Start eRPC proxying Ethereum mainnet via a free public endpoint
