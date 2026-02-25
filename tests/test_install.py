@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import stat
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -148,12 +148,44 @@ class TestInstallErpc:
             assert result.exists()
 
 
+    def test_cleans_up_on_checksum_failure(self, tmp_path: Path) -> None:
+        """Removes downloaded file when checksum verification fails."""
+        with (
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
+        ):
+
+            def fake_retrieve(url: str, filename: str) -> tuple[str, None]:
+                Path(filename).write_bytes(b"bad-content")
+                return (filename, None)
+
+            mock_retrieve.side_effect = fake_retrieve
+            dest = tmp_path / "erpc"
+
+            with pytest.raises(ERPCError, match="Checksum mismatch"):
+                install_erpc(
+                    "0.0.62",
+                    install_dir=str(tmp_path),
+                    checksum="0" * 64,
+                )
+            assert not dest.exists(), "Bad binary should be cleaned up"
+
+
 class TestVerifyChecksum:
     def test_valid_checksum(self, tmp_path: Path) -> None:
         f = tmp_path / "file.bin"
         content = b"hello world"
         f.write_bytes(content)
         expected = hashlib.sha256(content).hexdigest()
+        # Should not raise
+        verify_checksum(f, expected)
+
+    def test_uppercase_checksum(self, tmp_path: Path) -> None:
+        """Accepts uppercase hex digest."""
+        f = tmp_path / "file.bin"
+        content = b"hello world"
+        f.write_bytes(content)
+        expected = hashlib.sha256(content).hexdigest().upper()
         # Should not raise
         verify_checksum(f, expected)
 

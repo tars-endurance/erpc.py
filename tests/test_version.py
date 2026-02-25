@@ -5,7 +5,29 @@ from __future__ import annotations
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from erpc.version import get_erpc_version
+from erpc.version import _parse_version, get_erpc_version
+
+
+class TestParseVersion:
+    """Direct tests for the version parser."""
+
+    def test_bare_version(self) -> None:
+        assert _parse_version("0.0.62") == "0.0.62"
+
+    def test_v_prefix(self) -> None:
+        assert _parse_version("v0.0.62") == "0.0.62"
+
+    def test_with_label(self) -> None:
+        assert _parse_version("erpc version 0.0.62") == "0.0.62"
+
+    def test_prerelease(self) -> None:
+        assert _parse_version("v1.2.3-beta.1") == "1.2.3-beta.1"
+
+    def test_garbage(self) -> None:
+        assert _parse_version("no version here") is None
+
+    def test_empty(self) -> None:
+        assert _parse_version("") is None
 
 
 class TestGetErpcVersion:
