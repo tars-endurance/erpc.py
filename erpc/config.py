@@ -14,11 +14,12 @@ from erpc.exceptions import ERPCConfigError
 
 if TYPE_CHECKING:
     from erpc.auth import AuthConfig
-    from erpc.database import DatabaseConfig
     from erpc.networks import NetworkConfig
     from erpc.providers import Provider
     from erpc.server import MetricsConfig, ServerConfig
     from erpc.upstreams import UpstreamConfig
+
+from erpc.database import CachePolicy, DatabaseConfig, MemoryConnector
 
 
 @dataclass
@@ -75,7 +76,7 @@ class ERPCConfig:
     server: ServerConfig | None = None
     metrics: MetricsConfig | None = None
     auth: AuthConfig | None = None
-    database: DatabaseConfig | None = None
+    database: DatabaseConfig | None = None  # explicit database config overrides auto-generation
     networks: list[NetworkConfig] = field(default_factory=list)
     network_defaults: NetworkConfig | None = None
     upstream_defaults: UpstreamConfig | None = None
@@ -258,6 +259,11 @@ class ERPCConfig:
             "metrics": metrics_dict,
             "projects": [self._build_project()],
         }
+
+        db_config = self._resolve_database()
+        if db_config is not None:
+            doc["database"] = {"evmJsonRpcCache": db_config.to_dict()}
+
         return yaml.dump(doc, default_flow_style=False, sort_keys=False)
 
     def write(self, path: Path | None = None) -> Path:
@@ -310,9 +316,6 @@ class ERPCConfig:
                     "evm": {"chainId": chain_id},
                 }
 
-            if self.cache.method_ttls:
-                network["policies"] = self._build_cache_policies()
-
             networks.append(network)
 
         project: dict[str, Any] = {
@@ -333,32 +336,53 @@ class ERPCConfig:
         if self.providers:
             project["providers"] = [p.to_dict() for p in self.providers]
 
-        if self.database is not None:
-            project["database"] = self.database.to_dict()
-
         if self.auth is not None:
             project["auth"] = self.auth.to_dict()
 
         return project
 
-    def _build_cache_policies(self) -> list[dict[str, Any]]:
-        """Build cache policy rules from method TTL overrides."""
-        policies: list[dict[str, Any]] = []
+    def _resolve_database(self) -> DatabaseConfig | None:
+        """Resolve the effective database config.
+
+        Returns the explicit ``database`` if set, otherwise auto-generates
+        one from ``CacheConfig.method_ttls``.
+        """
+        if self.database is not None:
+            return self.database
+
+        if not self.cache.method_ttls:
+            return None
+
+        connector = MemoryConnector(id="memory-cache", max_items=self.cache.max_items)
+
+        # Default policies: finalized=0 (no cache), unfinalized=5s
+        policies: list[CachePolicy] = [
+            CachePolicy(
+                connector="memory-cache",
+                ttl="0",
+                network="*",
+                method="*",
+                finality="finalized",
+            ),
+            CachePolicy(
+                connector="memory-cache",
+                ttl="5s",
+                network="*",
+                method="*",
+                finality="unfinalized",
+            ),
+        ]
+
+        # Per-method overrides
         for method, ttl in self.cache.method_ttls.items():
-            if ttl == 0:
-                policies.append(
-                    {
-                        "method": method,
-                        "finality": "unfinalized",
-                        "cache": {"empty": "skip", "ttl": "0s"},
-                    }
+            policies.append(
+                CachePolicy(
+                    connector="memory-cache",
+                    ttl=f"{ttl}s",
+                    network="*",
+                    method=method,
+                    finality="unfinalized",
                 )
-            else:
-                policies.append(
-                    {
-                        "method": method,
-                        "finality": "unfinalized",
-                        "cache": {"ttl": f"{ttl}s"},
-                    }
-                )
-        return policies
+            )
+
+        return DatabaseConfig(connectors=[connector], policies=policies)

@@ -91,15 +91,20 @@ def test_method_ttl_overrides():
         ),
     )
     doc = yaml.safe_load(config.to_yaml())
-    network = doc["projects"][0]["networks"][0]
-    policies = network["policies"]
 
-    assert len(policies) == 2
+    # Policies now live under top-level database.evmJsonRpcCache
+    assert "database" in doc
+    cache_section = doc["database"]["evmJsonRpcCache"]
+    policies = cache_section["policies"]
+
+    # 2 default policies + 2 method overrides
+    assert len(policies) == 4
+
     eth_call_policy = next(p for p in policies if p["method"] == "eth_call")
-    assert eth_call_policy["cache"]["ttl"] == "0s"
+    assert eth_call_policy["ttl"] == "0s"
 
     eth_logs_policy = next(p for p in policies if p["method"] == "eth_getLogs")
-    assert eth_logs_policy["cache"]["ttl"] == "2s"
+    assert eth_logs_policy["ttl"] == "2s"
 
 
 def test_write_to_path(tmp_path):
@@ -129,3 +134,102 @@ def test_custom_ports():
     doc = yaml.safe_load(config.to_yaml())
     assert doc["server"]["httpPort"] == 8080
     assert doc["metrics"]["port"] == 8081
+
+
+# --- Database cache config tests ---
+
+
+def test_no_database_without_cache():
+    """ERPCConfig without method_ttls should not emit database section."""
+    config = ERPCConfig(upstreams={1: ["https://rpc.example.com"]})
+    doc = yaml.safe_load(config.to_yaml())
+    assert "database" not in doc
+
+
+def test_database_auto_generated_from_method_ttls():
+    """method_ttls should auto-generate top-level database with evmJsonRpcCache."""
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(max_items=100_000, method_ttls={"eth_call": 0}),
+    )
+    doc = yaml.safe_load(config.to_yaml())
+    assert "database" in doc
+    cache_section = doc["database"]["evmJsonRpcCache"]
+
+    # Connector
+    connectors = cache_section["connectors"]
+    assert len(connectors) == 1
+    assert connectors[0]["id"] == "memory-cache"
+    assert connectors[0]["driver"] == "memory"
+    assert connectors[0]["memory"]["maxItems"] == 100_000
+
+    # Default policies
+    policies = cache_section["policies"]
+    finalized = next(p for p in policies if p["finality"] == "finalized" and p["method"] == "*")
+    assert str(finalized["ttl"]) == "0"
+
+    unfinalized = next(
+        p for p in policies if p["finality"] == "unfinalized" and p["method"] == "*"
+    )
+    assert unfinalized["ttl"] == "5s"
+
+
+def test_method_ttl_zero_produces_0s():
+    """TTL=0 should emit ttl: 0s for the method override."""
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(method_ttls={"eth_call": 0}),
+    )
+    doc = yaml.safe_load(config.to_yaml())
+    policies = doc["database"]["evmJsonRpcCache"]["policies"]
+    eth_call = next(p for p in policies if p["method"] == "eth_call")
+    assert eth_call["ttl"] == "0s"
+    assert eth_call["finality"] == "unfinalized"
+
+
+def test_explicit_database_overrides_auto():
+    """Explicit DatabaseConfig should take precedence over auto-generation."""
+    from erpc.database import CachePolicy as DBCachePolicy
+    from erpc.database import DatabaseConfig, MemoryConnector
+
+    db = DatabaseConfig(
+        connectors=[MemoryConnector(id="custom", max_items=5000)],
+        policies=[DBCachePolicy(connector="custom", ttl="60s", finality="finalized")],
+    )
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(method_ttls={"eth_call": 0}),
+        database=db,
+    )
+    doc = yaml.safe_load(config.to_yaml())
+    connectors = doc["database"]["evmJsonRpcCache"]["connectors"]
+    assert connectors[0]["id"] == "custom"
+
+
+def test_database_not_under_project():
+    """database should be at top level, not under projects."""
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(method_ttls={"eth_call": 0}),
+    )
+    doc = yaml.safe_load(config.to_yaml())
+    assert "database" not in doc["projects"][0]
+    assert "database" in doc
+
+
+def test_database_round_trip():
+    """Generate YAML with database, parse back, verify structure."""
+    config = ERPCConfig(
+        upstreams={1: ["https://rpc.example.com"]},
+        cache=CacheConfig(max_items=50_000, method_ttls={"eth_getBalance": 10}),
+    )
+    yaml_str = config.to_yaml()
+    doc = yaml.safe_load(yaml_str)
+
+    db = doc["database"]["evmJsonRpcCache"]
+    assert len(db["connectors"]) == 1
+    assert len(db["policies"]) == 3  # 2 defaults + 1 override
+    assert db["connectors"][0]["memory"]["maxItems"] == 50_000
+
+    override = next(p for p in db["policies"] if p["method"] == "eth_getBalance")
+    assert override["ttl"] == "10s"
