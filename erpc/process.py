@@ -81,6 +81,20 @@ def find_erpc_binary(binary_path: str | None = None) -> str:
     if found:
         return found
 
+    # Auto-install if not found
+    try:
+        import logging
+
+        from erpc.install import install_erpc
+
+        logging.getLogger("erpc.process").info(
+            "eRPC binary not found — downloading automatically..."
+        )
+        path = install_erpc()
+        return str(path)
+    except Exception:
+        pass  # Fall through to ERPCNotFound
+
     raise ERPCNotFound(
         "eRPC binary not found. Install it or set ERPC_BINARY env var. "
         "See: https://github.com/erpc/erpc"
