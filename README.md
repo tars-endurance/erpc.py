@@ -1,19 +1,35 @@
+<div align="center">
+
 # erpc.py
 
-Python subprocess manager for [eRPC](https://github.com/erpc/erpc) — the fault-tolerant EVM RPC proxy and permanent caching solution.
+**Python subprocess manager for [eRPC](https://github.com/erpc/erpc) — the fault-tolerant EVM RPC proxy.**
 
-Inspired by [py-geth](https://github.com/ethereum/py-geth) from the Ethereum Foundation.
+Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRPC.
+
+[![CI](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml/badge.svg)](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/tars-endurance/erpc.py)
+[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://pypi.org/project/erpc-py/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![mypy](https://img.shields.io/badge/type--checked-mypy%20strict-blue)](https://mypy-lang.org/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
+
+</div>
+
+---
 
 ## Overview
 
-`erpc.py` provides a clean Python API for managing eRPC as a subprocess. It handles:
+**erpc.py** gives you full programmatic control over [eRPC](https://github.com/erpc/erpc) from Python — binary installation, YAML config generation, process lifecycle, health monitoring, and runtime metrics. Pure Python with only `pyyaml` as a runtime dependency.
 
-- **Binary discovery** — finds the `erpc` binary on PATH or at a specified location
-- **Config generation** — programmatic YAML config building with sensible defaults
-- **Process lifecycle** — start, stop, restart, health monitoring
-- **Health checks** — polls eRPC's HTTP health endpoint
-- **Graceful shutdown** — SIGTERM with fallback to SIGKILL
-- **Context manager** — `with ERPCProcess(...) as erpc:` pattern
+```python
+from erpc import ERPCProcess
+
+with ERPCProcess(upstreams={1: ["https://eth.llamarpc.com"]}) as erpc:
+    url = erpc.endpoint_url(1)  # http://127.0.0.1:4000/py-erpc/evm/1
+    print(f"Proxying Ethereum mainnet at {url}")
+```
+
+---
 
 ## Installation
 
@@ -21,169 +37,224 @@ Inspired by [py-geth](https://github.com/ethereum/py-geth) from the Ethereum Fou
 pip install erpc-py
 ```
 
+To install the eRPC binary:
+
+```bash
+erpc-py install --version 0.0.62
+```
+
+Or programmatically:
+
+```python
+from erpc.install import install_erpc
+
+install_erpc("0.0.62")  # → /usr/local/bin/erpc
+```
+
+---
+
 ## Quick Start
+
+### Minimal — just upstreams
 
 ```python
 from erpc import ERPCProcess
 
-# Minimal — just provide upstream RPC endpoints
-process = ERPCProcess(
-    upstreams={
-        1: ["https://eth-mainnet.g.alchemy.com/v2/KEY"],
-        137: ["https://polygon-mainnet.g.alchemy.com/v2/KEY"],
-    }
-)
-
-# Context manager handles start/stop
-with process:
-    print(f"eRPC listening at {process.endpoint}")
-    # Your application talks to process.endpoint instead of upstream RPCs
-    # e.g., http://127.0.0.1:4000/main/evm/1
-
-# Or manual lifecycle
-process.start()
-process.wait_for_health(timeout=30)
-print(process.is_alive)
-process.stop()
+with ERPCProcess(upstreams={1: ["https://eth.llamarpc.com"]}) as erpc:
+    print(erpc.endpoint_url(1))
+    print(f"Healthy: {erpc.is_healthy}")
 ```
 
-## Configuration
+### Full config
 
 ```python
-from erpc import ERPCProcess, ERPCConfig, CacheConfig
+from erpc import ERPCConfig, ERPCProcess, CacheConfig
 
 config = ERPCConfig(
     project_id="my-project",
     upstreams={
-        1: ["https://eth-mainnet.alchemy.com/v2/KEY", "https://mainnet.infura.io/v3/KEY"],
-        137: ["https://polygon-mainnet.alchemy.com/v2/KEY"],
+        1: ["https://eth.llamarpc.com", "https://rpc.ankr.com/eth"],
+        137: ["https://polygon-rpc.com"],
     },
-    server_host="127.0.0.1",
     server_port=4000,
     metrics_port=4001,
-    log_level="warn",
-    cache=CacheConfig(
-        max_items=10000,
-        method_ttls={
-            "eth_call": 0,           # No caching for calls (safety)
-            "eth_getBlockByNumber": 12,  # 12s for block data
-            "eth_getLogs": 2,         # 2s for logs
-        }
+    log_level="info",
+    cache=CacheConfig(max_items=50_000),
+)
+
+with ERPCProcess(config=config) as erpc:
+    print(erpc.endpoint_url(1))
+    print(erpc.endpoint_url(137))
+```
+
+---
+
+## Features
+
+### 🔧 Binary Management
+
+Auto-detect or install eRPC binaries from GitHub releases with optional SHA256 verification.
+
+```python
+from erpc.install import install_erpc
+
+path = install_erpc("0.0.62", checksum="abc123...")
+```
+
+### 📝 Config Builder
+
+Full-fidelity Python config that generates valid `erpc.yaml` — networks, upstreams, failsafe policies, rate limiters, auth, caching, database connectors, and more.
+
+```python
+from erpc import ERPCConfig, DatabaseConfig, RedisConnector, AuthConfig, SecretAuth
+
+config = ERPCConfig(
+    project_id="production",
+    upstreams={1: ["https://eth.llamarpc.com"]},
+    database=DatabaseConfig(
+        evm_json_rpc_cache=RedisConnector(addr="localhost:6379"),
+    ),
+    auth=AuthConfig(
+        strategies=[SecretAuth(value="my-secret-key")],
     ),
 )
 
-process = ERPCProcess(config=config)
+config.write("erpc.yaml")  # Write to file
+print(config.to_yaml())    # Or get YAML string
 ```
 
-## Architecture
+**Supported config sections:**
+- Networks with per-chain policies
+- Upstream defaults and rich upstream configs
+- 20+ provider presets (Alchemy, Infura, QuickNode, Ankr, etc.)
+- Rate limiters and failsafe policies
+- Auth strategies (Secret, JWT, SIWE, Network-based)
+- Database connectors (Redis, PostgreSQL, DynamoDB, Memory)
+- Cache policies with per-method TTLs
+- Server config (CORS, timeouts) and metrics
 
+### 🏥 Health & Metrics Client
+
+Query eRPC's runtime health and Prometheus metrics — stdlib only, no `requests` needed.
+
+```python
+from erpc.client import ERPCClient
+
+client = ERPCClient("http://localhost:4000")
+
+# Structured health check
+status = client.health()
+print(f"{status.version} — uptime: {status.uptime}s")
+
+# Prometheus metrics as dict
+metrics = client.metrics()
+print(metrics.get("erpc_requests_total"))
 ```
-┌──────────────────────────────────────────┐
-│  Your Application (Python)               │
-│                                          │
-│  ┌──────────────┐    ┌────────────────┐  │
-│  │  ERPCProcess  │───▶│  erpc binary   │  │
-│  │  (manager)   │    │  (subprocess)  │  │
-│  └──────────────┘    └───────┬────────┘  │
-│                              │           │
-│         http://127.0.0.1:4000            │
-│                              │           │
-│                     ┌────────▼────────┐  │
-│                     │  Upstream RPCs  │  │
-│                     └─────────────────┘  │
-└──────────────────────────────────────────┘
+
+### 📊 Health Monitoring
+
+Track health state transitions over time.
+
+```python
+from erpc import HealthMonitor, HealthEvent
+
+monitor = HealthMonitor(url="http://localhost:4000", interval=30.0)
+event = monitor.latest_event()  # HealthEvent.HEALTHY / DOWN / etc.
 ```
+
+### 🐳 Docker Integration
+
+Run eRPC as a Docker container — no local binary needed. Uses the `docker` CLI, no Python Docker SDK required.
+
+```python
+from erpc import ERPCConfig, DockerERPCProcess
+
+config = ERPCConfig(upstreams={1: ["https://eth.llamarpc.com"]})
+
+with DockerERPCProcess(config=config, name="my-erpc") as erpc:
+    print(erpc.endpoint_url(1))
+    print(erpc.logs(tail=20))
+```
+
+### 🖥️ CLI Tool
+
+Manage eRPC from the command line:
+
+```bash
+erpc-py version                    # Show versions
+erpc-py install --version 0.0.62   # Install binary
+erpc-py health                     # Check health
+erpc-py metrics                    # Show Prometheus metrics
+erpc-py config generate \
+  --chains 1,137 \
+  --upstreams https://eth.llamarpc.com,https://polygon-rpc.com \
+  --output erpc.yaml               # Generate config
+erpc-py start --config erpc.yaml   # Start eRPC
+erpc-py stop                       # Stop eRPC
+```
+
+### 🛡️ Provider Presets
+
+20+ built-in provider configurations for popular RPC services:
+
+```python
+from erpc import AlchemyProvider, InfuraProvider, ERPCConfig
+
+config = ERPCConfig(
+    upstreams={1: ["https://eth.llamarpc.com"]},
+    providers=[
+        AlchemyProvider(api_key="..."),
+        InfuraProvider(api_key="..."),
+    ],
+)
+```
+
+<details>
+<summary>All supported providers</summary>
+
+Alchemy · Ankr · BlastAPI · BlockPi · Chainstack · Conduit · DRPC · Dwellir · Envio · Etherspot · Infura · OnFinality · Pimlico · QuickNode · Repository · RouteMesh · Superchain · Tenderly · Thirdweb
+
+</details>
 
 ---
 
-## Development Roadmap
+## API Overview
 
-Complete API coverage for eRPC, from subprocess management to full config schema to runtime monitoring.
-
-### Phase 1 — Core Foundation ✅ (current)
-
-Subprocess lifecycle management and basic configuration. **This is where we are.**
-
-| # | Feature | Status | Description |
-|---|---------|--------|-------------|
-| — | Process lifecycle | ✅ Done | start/stop/restart, health checks, context manager, graceful shutdown |
-| — | Basic config generation | ✅ Done | ERPCConfig → YAML, upstreams, cache, server settings |
-| — | Binary discovery | ✅ Done | PATH, env var, common locations, explicit path |
-| 1 | Binary installation | 🔲 Open | Cross-platform install from GitHub releases, version pinning, checksums |
-| 2 | Config file loading | 🔲 Open | `ERPCConfig.from_yaml()`, schema validation, round-trip fidelity |
-| 3 | Logging integration | 🔲 Open | Stream eRPC logs to Python logger, structured JSON parsing |
-
-### Phase 2 — Full Config Schema
-
-Complete Python dataclass coverage for every eRPC configuration surface.
-
-| # | Feature | Status | Description |
-|---|---------|--------|-------------|
-| 4 | Network config | 🔲 Open | Full NetworkConfig: integrity, eth_getLogs controls, aliases, defaults |
-| 5 | Upstream config | 🔲 Open | Full UpstreamConfig: block availability, compression, headers, proxies, scoring |
-| 6 | Failsafe policies | 🔲 Open | Timeout, retry (empty response handling), hedge, circuit breaker, per-method |
-| 7 | Rate limiters | 🔲 Open | Budgets, rules, auto-tuner, store backends (memory/Redis), wildcard matching |
-| 8 | Database/cache | 🔲 Open | Memory, Redis, PostgreSQL, DynamoDB connectors; finality-aware cache policies |
-| 9 | Provider shortcuts | 🔲 Open | Alchemy, Infura, dRPC, BlastAPI + 15 more with auto-chain discovery |
-| 10 | Auth config | 🔲 Open | Secret, JWT, SIWE, Network auth strategies with per-user rate limits |
-| 11 | Server & metrics | 🔲 Open | Full ServerConfig, MetricsConfig, CORS, Prometheus endpoint |
-
-### Phase 3 — Runtime Client
-
-HTTP client for eRPC's runtime monitoring and management endpoints.
-
-| # | Feature | Status | Description |
-|---|---------|--------|-------------|
-| 12 | Health & metrics client | 🔲 Open | Structured health status, Prometheus metrics parsing, cache stats |
-| 13 | Dynamic config updates | 🔲 Open | Hot config reload, upstream hot-swap, config diff detection |
-| 14 | Upstream monitoring | 🔲 Open | Event callbacks (upstream down/recovered), circuit breaker state tracking |
-
-### Phase 4 — Advanced
-
-Power features for production deployments.
-
-| # | Feature | Status | Description |
-|---|---------|--------|-------------|
-| 15 | Async support | 🔲 Open | AsyncERPCProcess, asyncio subprocess, async context manager |
-| 16 | Docker integration | 🔲 Open | DockerERPCProcess using `ghcr.io/erpc/erpc`, container lifecycle |
-| 17 | CLI tool | 🔲 Open | `erpc-py start/stop/health/install/config` command-line interface |
-| 18 | Integration tests | 🔲 Open | Real eRPC binary tests, mock upstreams, CI pipeline |
-
-### Coverage Target
-
-```
-eRPC Config Surface        Python Coverage
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Server config              Phase 2 (#11)
-Projects                   Phase 1 ✅ (basic) → Phase 2 (full)
-  ├─ Networks              Phase 2 (#4)
-  │   ├─ Failsafe          Phase 2 (#6)
-  │   ├─ Integrity         Phase 2 (#4)
-  │   └─ eth_getLogs       Phase 2 (#4)
-  ├─ Upstreams             Phase 2 (#5)
-  │   ├─ Block availability Phase 2 (#5)
-  │   ├─ Failsafe          Phase 2 (#6)
-  │   └─ Compression       Phase 2 (#5)
-  ├─ Providers             Phase 2 (#9)
-  └─ Auth                  Phase 2 (#10)
-Rate limiters              Phase 2 (#7)
-Database/Cache             Phase 2 (#8)
-  ├─ Drivers               Phase 2 (#8)
-  ├─ Cache policies        Phase 2 (#8)
-  └─ Compression           Phase 2 (#8)
-Metrics                    Phase 2 (#11) + Phase 3 (#12)
-Runtime API                Phase 3 (#12, #13, #14)
-Async                      Phase 4 (#15)
-Docker                     Phase 4 (#16)
-CLI                        Phase 4 (#17)
-```
+| Class | Description |
+|---|---|
+| `ERPCConfig` | Config builder — generates `erpc.yaml` from Python dataclasses |
+| `ERPCProcess` | Subprocess lifecycle manager with context manager support |
+| `DockerERPCProcess` | Docker container lifecycle manager |
+| `ERPCClient` | Health and Prometheus metrics client (stdlib HTTP) |
+| `HealthMonitor` | Health state tracking with event history |
+| `install_erpc()` | Binary installer from GitHub releases |
+| `CacheConfig` | Memory cache settings with per-method TTLs |
+| `DatabaseConfig` | Database connector config (Redis, Postgres, DynamoDB, Memory) |
+| `AuthConfig` | Auth strategies (Secret, JWT, SIWE, Network) |
+| `ServerConfig` | Server settings (CORS, timeouts, host/port) |
 
 ---
 
-## Reference
+## Development
 
-This project follows the patterns established by [py-geth](https://github.com/ethereum/py-geth), the Ethereum Foundation's Python wrapper for running Go-Ethereum as a subprocess.
+```bash
+git clone https://github.com/tars-endurance/erpc.py.git
+cd erpc.py
+pip install -e ".[dev]"
+
+# Run tests (319 tests, 96% coverage)
+pytest
+
+# Type checking
+mypy erpc/
+
+# Linting
+ruff check .
+ruff format --check .
+```
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE)
