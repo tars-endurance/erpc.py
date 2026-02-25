@@ -6,11 +6,17 @@ import tempfile
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from erpc.exceptions import ERPCConfigError
+from erpc.networks import NetworkConfig
+from erpc.providers import Provider
+from erpc.upstreams import UpstreamConfig
+
+if TYPE_CHECKING:
+    from erpc.database import DatabaseConfig
 
 
 @dataclass
@@ -42,6 +48,8 @@ class ERPCConfig:
         metrics_port: Metrics endpoint listen port.
         log_level: Logging verbosity (trace, debug, info, warn, error).
         cache: Memory cache configuration.
+        upstream_defaults: Default configuration applied to all upstreams.
+        rich_upstreams: List of fully-configured UpstreamConfig objects.
 
     Examples:
         >>> config = ERPCConfig(upstreams={1: ["https://eth.llamarpc.com"]})
@@ -58,6 +66,12 @@ class ERPCConfig:
     metrics_port: int = 4001
     log_level: str = "warn"
     cache: CacheConfig = field(default_factory=CacheConfig)
+    providers: list[Provider] = field(default_factory=list)
+    database: DatabaseConfig | None = None
+    networks: list[NetworkConfig] = field(default_factory=list)
+    network_defaults: NetworkConfig | None = None
+    upstream_defaults: UpstreamConfig | None = None
+    rich_upstreams: list[UpstreamConfig] = field(default_factory=list)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> ERPCConfig:
@@ -228,6 +242,11 @@ class ERPCConfig:
 
     def _build_project(self) -> dict[str, Any]:
         """Build a single eRPC project definition."""
+        # Index explicit NetworkConfig objects by chain_id
+        net_configs: dict[int, NetworkConfig] = {
+            n.chain_id: n for n in self.networks
+        }
+
         networks: list[dict[str, Any]] = []
         for chain_id, endpoints in self.upstreams.items():
             upstreams: list[dict[str, str]] = []
@@ -238,11 +257,17 @@ class ERPCConfig:
                         "id": f"upstream-{chain_id}-{i}",
                     }
                 )
-            network: dict[str, Any] = {
-                "architecture": "evm",
-                "evm": {"chainId": chain_id},
-                "upstreams": upstreams,
-            }
+
+            # Use explicit NetworkConfig if provided, otherwise minimal
+            if chain_id in net_configs:
+                network: dict[str, Any] = net_configs[chain_id].to_dict()
+            else:
+                network = {
+                    "architecture": "evm",
+                    "evm": {"chainId": chain_id},
+                }
+
+            network["upstreams"] = upstreams
 
             if self.cache.method_ttls:
                 network["policies"] = self._build_cache_policies()
@@ -254,7 +279,15 @@ class ERPCConfig:
             "networks": networks,
         }
 
-        if self.cache.max_items > 0:
+        if self.network_defaults is not None:
+            project["networkDefaults"] = self.network_defaults.to_defaults_dict()
+
+        if self.providers:
+            project["providers"] = [p.to_dict() for p in self.providers]
+
+        if self.database is not None:
+            project["database"] = self.database.to_dict()
+        elif self.cache.max_items > 0:
             project["cacheConfig"] = {
                 "connectors": [
                     {
