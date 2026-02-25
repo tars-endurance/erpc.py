@@ -165,9 +165,7 @@ class TestFromDict:
                         {
                             "architecture": "evm",
                             "evm": {"chainId": 42},
-                            "upstreams": [
-                                {"id": "u-0", "endpoint": "https://rpc.example.com"}
-                            ],
+                            "upstreams": [{"id": "u-0", "endpoint": "https://rpc.example.com"}],
                         }
                     ],
                 }

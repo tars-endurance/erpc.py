@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 # ConfigDiff
 # ---------------------------------------------------------------------------
 
+
 class TestConfigDiff:
     def test_no_changes(self):
         diff = ConfigDiff()
@@ -62,6 +63,7 @@ class TestConfigDiff:
 # _diff_configs
 # ---------------------------------------------------------------------------
 
+
 class TestDiffConfigs:
     def test_identical(self):
         c = ERPCConfig(upstreams={1: ["https://eth.example.com"]})
@@ -70,12 +72,16 @@ class TestDiffConfigs:
 
     def test_added_chain(self):
         old = ERPCConfig(upstreams={1: ["https://eth.example.com"]})
-        new = ERPCConfig(upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]})
+        new = ERPCConfig(
+            upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]}
+        )
         diff = _diff_configs(old, new)
         assert 137 in diff.added_upstreams
 
     def test_removed_chain(self):
-        old = ERPCConfig(upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]})
+        old = ERPCConfig(
+            upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]}
+        )
         new = ERPCConfig(upstreams={1: ["https://eth.example.com"]})
         diff = _diff_configs(old, new)
         assert 137 in diff.removed_upstreams
@@ -104,6 +110,7 @@ class TestDiffConfigs:
 # atomic_write_config
 # ---------------------------------------------------------------------------
 
+
 class TestAtomicWriteConfig:
     def test_writes_file(self, tmp_path: Path):
         config = ERPCConfig(upstreams={1: ["https://eth.example.com"]})
@@ -122,6 +129,7 @@ class TestAtomicWriteConfig:
 # _clone_config_with_upstreams
 # ---------------------------------------------------------------------------
 
+
 class TestCloneConfig:
     def test_clone_changes_upstreams(self):
         original = ERPCConfig(upstreams={1: ["https://eth.example.com"]}, log_level="debug")
@@ -135,6 +143,7 @@ class TestCloneConfig:
 # update_config / add_upstream / remove_upstream
 # ---------------------------------------------------------------------------
 
+
 def _mock_process(config: ERPCConfig, running: bool = True) -> MagicMock:
     proc = MagicMock()
     type(proc).is_running = PropertyMock(return_value=running)
@@ -147,7 +156,9 @@ def _mock_process(config: ERPCConfig, running: bool = True) -> MagicMock:
 class TestUpdateConfig:
     def test_updates_running_process(self):
         old = ERPCConfig(upstreams={1: ["https://eth.example.com"]})
-        new = ERPCConfig(upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]})
+        new = ERPCConfig(
+            upstreams={1: ["https://eth.example.com"], 137: ["https://polygon.example.com"]}
+        )
         proc = _mock_process(old)
         diff = update_config(proc, new)
         assert diff.has_changes

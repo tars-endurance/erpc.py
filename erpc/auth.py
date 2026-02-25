@@ -6,10 +6,12 @@ JWT verification, Sign-In with Ethereum (SIWE), and network-level IP filtering.
 
 Examples:
     >>> from erpc.auth import AuthConfig, SecretAuth, SIWEAuth
-    >>> auth = AuthConfig(strategies=[
-    ...     SecretAuth(value="my-api-key", rate_limit_budget="free-tier"),
-    ...     SIWEAuth(rate_limit_budget="wallet-tier"),
-    ... ])
+    >>> auth = AuthConfig(
+    ...     strategies=[
+    ...         SecretAuth(value="my-api-key", rate_limit_budget="free-tier"),
+    ...         SIWEAuth(rate_limit_budget="wallet-tier"),
+    ...     ]
+    ... )
     >>> auth.to_dict()["strategies"][0]["type"]
     'secret'
 

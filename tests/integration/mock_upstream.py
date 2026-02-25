@@ -22,7 +22,6 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
-
 # ── Canned Responses ──────────────────────────────────────────────────────────
 
 CANNED_RESPONSES: dict[str, Any] = {
@@ -47,7 +46,7 @@ class _MockHandler(BaseHTTPRequestHandler):
 
     server: _MockHTTPServer  # type: ignore[assignment]
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         """Handle POST requests with JSON-RPC payloads."""
         state = self.server.state
 
@@ -99,7 +98,7 @@ class _MockHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: Any) -> None:
         """Suppress default stderr logging."""
 
 

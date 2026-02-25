@@ -24,12 +24,14 @@ pytestmark = pytest.mark.integration
 
 def _jsonrpc_request(url: str, method: str, params: list[object] | None = None) -> dict:
     """Send a JSON-RPC request and return the parsed response."""
-    payload = json.dumps({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params or [],
-        "id": 1,
-    }).encode()
+    payload = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or [],
+            "id": 1,
+        }
+    ).encode()
     req = Request(url, data=payload, headers={"Content-Type": "application/json"})
     with urlopen(req, timeout=10) as resp:
         return json.loads(resp.read())
@@ -57,9 +59,7 @@ class TestProxyRequest:
 class TestCaching:
     """Validate eRPC caching behavior."""
 
-    def test_cache_hit(
-        self, erpc_process: ERPCProcess, mock_upstream: MockUpstream
-    ) -> None:
+    def test_cache_hit(self, erpc_process: ERPCProcess, mock_upstream: MockUpstream) -> None:
         """Second identical request should be faster (served from cache)."""
         url = erpc_process.endpoint_url(1)
 
@@ -97,8 +97,7 @@ class TestHealthAndMetrics:
     def test_metrics_endpoint(self, erpc_process: ERPCProcess) -> None:
         """Metrics endpoint returns Prometheus-format text."""
         metrics_url = (
-            f"http://{erpc_process.config.metrics_host}:{erpc_process.config.metrics_port}"
-            "/metrics"
+            f"http://{erpc_process.config.metrics_host}:{erpc_process.config.metrics_port}/metrics"
         )
         with urlopen(metrics_url, timeout=5) as resp:
             body = resp.read().decode()
@@ -186,3 +185,128 @@ class TestMultipleChains:
             finally:
                 if proc.is_running:
                     proc.stop()
+
+
+class TestConfigValidation:
+    """Validate that eRPC accepts generated configurations."""
+
+    def test_generated_config_starts_healthy(
+        self, erpc_binary: str, mock_upstream: MockUpstream
+    ) -> None:
+        """ERPCConfig generates valid YAML that eRPC accepts and starts with."""
+        config = ERPCConfig(
+            upstreams={1: [mock_upstream.url]},
+            server_port=14030,
+            metrics_port=14031,
+            log_level="debug",
+        )
+        proc = ERPCProcess(config=config, binary_path=erpc_binary)
+        proc.start()
+        try:
+            proc.wait_for_health(timeout=30)
+            assert proc.is_running
+            assert proc.is_healthy
+        finally:
+            if proc.is_running:
+                proc.stop()
+
+    def test_multi_upstream_config(self, erpc_binary: str, mock_upstream: MockUpstream) -> None:
+        """Config with multiple upstreams per chain is accepted."""
+        config = ERPCConfig(
+            upstreams={1: [mock_upstream.url, mock_upstream.url]},
+            server_port=14032,
+            metrics_port=14033,
+        )
+        proc = ERPCProcess(config=config, binary_path=erpc_binary)
+        proc.start()
+        try:
+            proc.wait_for_health(timeout=30)
+            assert proc.is_healthy
+        finally:
+            if proc.is_running:
+                proc.stop()
+
+
+class TestGracefulShutdown:
+    """Validate eRPC process lifecycle management."""
+
+    def test_stop_returns_clean_exit(self, erpc_process: ERPCProcess) -> None:
+        """Stopping eRPC via SIGTERM results in a clean exit."""
+        assert erpc_process.is_running
+        pid = erpc_process.pid
+        assert pid is not None
+
+        erpc_process.stop(timeout=10)
+
+        assert not erpc_process.is_running
+        assert not erpc_process.is_healthy
+
+    def test_context_manager_cleanup(self, erpc_binary: str, mock_upstream: MockUpstream) -> None:
+        """Context manager stops eRPC on exit."""
+        config = ERPCConfig(
+            upstreams={1: [mock_upstream.url]},
+            server_port=14040,
+            metrics_port=14041,
+        )
+        proc = ERPCProcess(config=config, binary_path=erpc_binary)
+
+        with proc:
+            assert proc.is_running
+            assert proc.is_healthy
+
+        assert not proc.is_running
+
+    def test_restart(self, erpc_binary: str, mock_upstream: MockUpstream) -> None:
+        """Restart stops and starts eRPC cleanly."""
+        config = ERPCConfig(
+            upstreams={1: [mock_upstream.url]},
+            server_port=14042,
+            metrics_port=14043,
+        )
+        proc = ERPCProcess(config=config, binary_path=erpc_binary)
+        proc.start()
+        proc.wait_for_health(timeout=30)
+
+        try:
+            old_pid = proc.pid
+            proc.restart()
+            proc.wait_for_health(timeout=30)
+
+            assert proc.is_running
+            assert proc.pid != old_pid
+        finally:
+            if proc.is_running:
+                proc.stop()
+
+
+class TestMetricsAfterTraffic:
+    """Validate metrics are populated after sending traffic."""
+
+    def test_metrics_populated_after_requests(self, erpc_process: ERPCProcess) -> None:
+        """After sending requests, the metrics endpoint contains request data."""
+        url = erpc_process.endpoint_url(1)
+
+        # Generate traffic.
+        for _ in range(5):
+            _jsonrpc_request(url, "eth_blockNumber")
+
+        # Give metrics a moment to update.
+        time.sleep(0.5)
+
+        metrics_url = (
+            f"http://{erpc_process.config.metrics_host}:{erpc_process.config.metrics_port}/metrics"
+        )
+        with urlopen(metrics_url, timeout=5) as resp:
+            body = resp.read().decode()
+            assert resp.status == 200
+            # Should have some non-empty content after traffic.
+            assert len(body) > 100, "Metrics body suspiciously short after traffic"
+
+
+class TestHealthViaClient:
+    """Validate health checks using the ERPCClient."""
+
+    def test_client_is_healthy(self, erpc_process: ERPCProcess) -> None:
+        """ERPCClient.is_healthy returns True for a running instance."""
+        client = erpc_process.client
+        assert client.is_healthy

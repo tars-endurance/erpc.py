@@ -5,7 +5,10 @@ auto-tuning, and storage backends (memory or Redis).
 
 Examples:
     >>> from erpc.rate_limiters import (
-    ...     MemoryStore, RateLimiterConfig, RateLimitBudget, RateLimitRule,
+    ...     MemoryStore,
+    ...     RateLimiterConfig,
+    ...     RateLimitBudget,
+    ...     RateLimitRule,
     ... )
     >>> budget = RateLimitBudget(
     ...     id="global",
@@ -20,7 +23,7 @@ Examples:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any
 
 _VALID_PERIODS = frozenset({"second", "minute", "hour", "day"})
 
@@ -55,6 +58,7 @@ class RateLimitRule:
     per_network: bool = False
 
     def __post_init__(self) -> None:
+        """Validate period value."""
         if self.period not in _VALID_PERIODS:
             msg = f"period must be one of {sorted(_VALID_PERIODS)}, got {self.period!r}"
             raise ValueError(msg)
@@ -89,7 +93,7 @@ class AutoTuneConfig:
     Args:
         enabled: Whether auto-tuning is active.
         adjustment_period: How often to evaluate and adjust (e.g. ``"1m"``, ``"5m"``).
-        error_rate_threshold: Error rate above which limits are decreased (0.0–1.0).
+        error_rate_threshold: Error rate above which limits are decreased (0.0-1.0).
         increase_factor: Multiplier when increasing budget (> 1.0).
         decrease_factor: Multiplier when decreasing budget (< 1.0).
         min_budget: Floor for auto-tuned budget value.
@@ -157,6 +161,7 @@ class RateLimitBudget:
     auto_tune: AutoTuneConfig | None = None
 
     def __post_init__(self) -> None:
+        """Validate budget ID is non-empty."""
         if not self.id:
             msg = "id must not be empty"
             raise ValueError(msg)
@@ -211,7 +216,7 @@ class RedisStore:
         uri: Redis connection URI (e.g. ``"redis://localhost:6379"``).
         tls: Enable TLS for the Redis connection.
         pool_size: Connection pool size.
-        near_limit_ratio: Ratio (0.0–1.0) at which to flag approaching limits.
+        near_limit_ratio: Ratio (0.0-1.0) at which to flag approaching limits.
         cache_key_prefix: Prefix for all Redis keys used by the rate limiter.
 
     Examples:
@@ -247,7 +252,7 @@ class RedisStore:
 
 
 # Type alias for store backends
-RateLimitStore = Union[MemoryStore, RedisStore]
+RateLimitStore = MemoryStore | RedisStore
 
 
 @dataclass
@@ -282,6 +287,7 @@ class RateLimiterConfig:
     budgets: list[RateLimitBudget] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        """Validate no duplicate budget IDs."""
         ids = [b.id for b in self.budgets]
         if len(ids) != len(set(ids)):
             msg = "Duplicate budget IDs found"

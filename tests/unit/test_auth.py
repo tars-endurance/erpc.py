@@ -151,11 +151,13 @@ class TestAuthConfig:
 
     def test_multiple_strategies(self) -> None:
         """AuthConfig composes multiple strategy types."""
-        config = AuthConfig(strategies=[
-            SecretAuth(value="key-1", rate_limit_budget="free"),
-            SIWEAuth(rate_limit_budget="wallet"),
-            NetworkAuth(allowed_ips=["127.0.0.1"]),
-        ])
+        config = AuthConfig(
+            strategies=[
+                SecretAuth(value="key-1", rate_limit_budget="free"),
+                SIWEAuth(rate_limit_budget="wallet"),
+                NetworkAuth(allowed_ips=["127.0.0.1"]),
+            ]
+        )
         result = config.to_dict()
         assert len(result["strategies"]) == 3
         assert result["strategies"][0]["type"] == "secret"
@@ -169,9 +171,9 @@ class TestAuthStrategyBase:
     def test_strategy_type_attribute(self) -> None:
         """All strategies expose strategy_type."""
         assert SecretAuth(value="x").strategy_type == "secret"
-        assert JWTAuth(
-            verification_keys=[], rate_limit_budget_claim_name="p"
-        ).strategy_type == "jwt"
+        assert (
+            JWTAuth(verification_keys=[], rate_limit_budget_claim_name="p").strategy_type == "jwt"
+        )
         assert SIWEAuth().strategy_type == "siwe"
         assert NetworkAuth().strategy_type == "network"
 
@@ -183,9 +185,11 @@ class TestERPCConfigIntegration:
         """AuthConfig integrates into ERPCConfig YAML output."""
         from erpc.config import ERPCConfig
 
-        auth = AuthConfig(strategies=[
-            SecretAuth(value="test-key"),
-        ])
+        auth = AuthConfig(
+            strategies=[
+                SecretAuth(value="test-key"),
+            ]
+        )
         config = ERPCConfig(
             upstreams={1: ["https://eth.llamarpc.com"]},
             auth=auth,

@@ -6,19 +6,32 @@ allowing end-to-end validation of proxy behavior, caching, and metrics.
 
 from __future__ import annotations
 
-from typing import Generator
+import logging
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 from erpc.config import ERPCConfig
+from erpc.install import install_erpc
 from erpc.process import ERPCProcess, find_erpc_binary
 
 from .mock_upstream import MockUpstream
 
+logger = logging.getLogger(__name__)
+
+ERPC_INSTALL_VERSION = "0.0.62"
+"""Version to auto-install when no local binary is found."""
+
 
 @pytest.fixture(scope="session")
 def erpc_binary() -> str:
-    """Locate the eRPC binary or skip the test session.
+    """Locate the eRPC binary, installing it if necessary.
+
+    Tries ``find_erpc_binary()`` first.  Falls back to downloading
+    the binary via ``install_erpc()`` into ``/tmp/erpc-test/``.
 
     Returns:
         Path to the eRPC binary.
@@ -27,7 +40,15 @@ def erpc_binary() -> str:
     try:
         return find_erpc_binary()
     except Exception:
-        pytest.skip("eRPC binary not found — skipping integration tests")
+        logger.info("eRPC binary not found — installing %s", ERPC_INSTALL_VERSION)
+        try:
+            path = install_erpc(
+                version=ERPC_INSTALL_VERSION,
+                install_dir="/tmp/erpc-test",
+            )
+            return str(path)
+        except Exception as exc:
+            pytest.skip(f"Could not install eRPC: {exc}")
 
 
 @pytest.fixture()

@@ -102,9 +102,7 @@ class TestInstallErpc:
 
             mock_retrieve.side_effect = fake_retrieve
 
-            result = install_erpc(
-                "0.0.62", install_dir=str(tmp_path), checksum=expected_hash
-            )
+            result = install_erpc("0.0.62", install_dir=str(tmp_path), checksum=expected_hash)
             assert result.exists()
 
     def test_checksum_mismatch(self, tmp_path: Path) -> None:
@@ -146,7 +144,6 @@ class TestInstallErpc:
             result = install_erpc("0.0.62", install_dir=str(nested))
             assert nested.exists()
             assert result.exists()
-
 
     def test_cleans_up_on_checksum_failure(self, tmp_path: Path) -> None:
         """Removes downloaded file when checksum verification fails."""

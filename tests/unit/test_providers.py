@@ -59,9 +59,7 @@ class TestAPIKeyProviders:
             (RouteMeshProvider, "routemesh", "rm-key"),
         ],
     )
-    def test_api_key_provider_to_dict(
-        self, cls: type[Provider], vendor: str, key: str
-    ) -> None:
+    def test_api_key_provider_to_dict(self, cls: type[Provider], vendor: str, key: str) -> None:
         """API key providers serialize with vendor and settings.apiKey."""
         provider = cls(api_key=key)  # type: ignore[call-arg]
         result = provider.to_dict()

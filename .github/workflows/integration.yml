@@ -24,10 +24,9 @@ jobs:
 
       - name: Install eRPC binary
         run: |
-          ERPC_VERSION="0.0.51"
-          curl -fSL "https://github.com/erpc/erpc/releases/download/${ERPC_VERSION}/erpc_${ERPC_VERSION}_linux_amd64.tar.gz" \
-            -o erpc.tar.gz
-          tar xzf erpc.tar.gz
+          ERPC_VERSION="0.0.62"
+          curl -fSL "https://github.com/erpc/erpc/releases/download/${ERPC_VERSION}/erpc_linux_x86_64" \
+            -o erpc
           chmod +x erpc
           sudo mv erpc /usr/local/bin/erpc
           erpc --version || echo "eRPC installed (version flag may not exist)"

@@ -63,9 +63,7 @@ class TestRateLimitRule:
 
     def test_to_dict(self) -> None:
         """Rule serializes to eRPC-compatible dict."""
-        rule = RateLimitRule(
-            method="eth_call", max_count=100, period="second", per_ip=True
-        )
+        rule = RateLimitRule(method="eth_call", max_count=100, period="second", per_ip=True)
         d = rule.to_dict()
         assert d == {
             "method": "eth_call",
@@ -269,5 +267,5 @@ class TestRateLimiterConfig:
         b2 = RateLimitBudget(
             id="same", rules=[RateLimitRule(method="*", max_count=20, period="second")]
         )
-        with pytest.raises(ValueError, match="[Dd]uplicate"):
+        with pytest.raises(ValueError, match=r"[Dd]uplicate"):
             RateLimiterConfig(store=MemoryStore(), budgets=[b1, b2])

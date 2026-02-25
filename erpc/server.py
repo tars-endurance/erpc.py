@@ -54,13 +54,15 @@ class CORSConfig:
             values are at their defaults (CORS disabled).
 
         """
-        if not any([
-            self.allowed_origins,
-            self.allowed_methods,
-            self.allowed_headers,
-            self.allow_credentials,
-            self.max_age,
-        ]):
+        if not any(
+            [
+                self.allowed_origins,
+                self.allowed_methods,
+                self.allowed_headers,
+                self.allow_credentials,
+                self.max_age,
+            ]
+        ):
             return {}
 
         d: dict[str, Any] = {}

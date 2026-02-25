@@ -7,12 +7,14 @@ Examples:
     Update the full config::
 
         from erpc.dynamic import update_config
+
         diff = update_config(process, new_config)
         print(diff)
 
     Hot-add an upstream::
 
         from erpc.dynamic import add_upstream
+
         add_upstream(process, chain_id=137, endpoint="https://polygon.llamarpc.com")
 
 """

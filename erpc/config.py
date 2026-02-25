@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from erpc.upstreams import UpstreamConfig
 
 
-
 @dataclass
 class CacheConfig:
     """Memory cache configuration for eRPC.
@@ -279,9 +278,7 @@ class ERPCConfig:
     def _build_project(self) -> dict[str, Any]:
         """Build a single eRPC project definition."""
         # Index explicit NetworkConfig objects by chain_id
-        net_configs: dict[int, NetworkConfig] = {
-            n.chain_id: n for n in self.networks
-        }
+        net_configs: dict[int, NetworkConfig] = {n.chain_id: n for n in self.networks}
 
         networks: list[dict[str, Any]] = []
         for chain_id, endpoints in self.upstreams.items():

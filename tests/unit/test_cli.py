@@ -295,7 +295,9 @@ class TestInstallCommandFailure:
 class TestStartCommandFailures:
     """Tests for start failure paths."""
 
-    def test_start_binary_not_found(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_start_binary_not_found(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """start returns 1 when binary not found."""
         config_file = tmp_path / "erpc.yaml"
         config_file.write_text("logLevel: warn\n")
@@ -319,5 +321,6 @@ class TestMainEntryPoint:
             mock_args.func.return_value = 0
             mock_parser.return_value.parse_args.return_value = mock_args
             from erpc.cli import main
+
             main()
         mock_exit.assert_called_once_with(0)
