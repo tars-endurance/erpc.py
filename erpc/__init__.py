@@ -151,4 +151,4 @@ __all__ = [
 #: All CI, integration tests, and config generation target this version.
 ERPC_VERSION = "0.0.62"
 
-__version__ = "0.1.0"
+__version__ = "0.1.0b1"
