@@ -37,4 +37,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=erpc --cov-report=term-missing
+      - run: pytest --cov=erpc --cov-report=term-missing --cov-report=xml
+      # Upload coverage from one Python version only (avoid duplicates)
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+          # NOTE: Add CODECOV_TOKEN as a repository secret for private repos.
+          # Public repos work without a token, but adding one is recommended.
+          # Get your token at https://app.codecov.io/gh/tars-endurance/erpc.py
+          token: ${{ secrets.CODECOV_TOKEN }}
