@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import urllib.request
 
-from erpc import ERPC_VERSION, ERPCProcess
+from erpc import ERPC_VERSION, ERPCConfig, ERPCProcess
 
 
 def jsonrpc(url: str, method: str, params: list | None = None) -> dict:
@@ -34,7 +34,12 @@ def main() -> None:
     print(f"erpc.py — targeting eRPC v{ERPC_VERSION}\n")
 
     # Start eRPC proxying Ethereum mainnet via a free public endpoint
-    with ERPCProcess(upstreams={1: ["https://eth.llamarpc.com"]}) as erpc:
+    config = ERPCConfig(
+        upstreams={1: ["https://eth.llamarpc.com"]},
+        server_port=4400,
+        metrics_port=4401,
+    )
+    with ERPCProcess(config=config) as erpc:
         url = erpc.endpoint_url(1)
         print(f"✓ eRPC running — proxying chain 1 at {url}")
         print(f"  Health: {erpc.config.health_url}")
