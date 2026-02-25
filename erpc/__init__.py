@@ -69,11 +69,9 @@ __all__ = [
     "ERPCNotRunning",
     "ERPCProcess",
     "ERPCStartupError",
-<<<<<<< HEAD
-    "LoggingMixin",
-=======
     "EtherspotProvider",
     "InfuraProvider",
+    "LoggingMixin",
     "MemoryConnector",
     "OnFinalityProvider",
     "PimlicoProvider",
@@ -87,7 +85,6 @@ __all__ = [
     "TenderlyProvider",
     "ThirdwebProvider",
     "TLSConfig",
->>>>>>> origin/feat/network-config
 ]
 
 __version__ = "0.1.0"
