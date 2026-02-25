@@ -315,6 +315,12 @@ class ERPCConfig:
             "networks": networks,
         }
 
+        if self.upstream_defaults is not None:
+            project["upstreamDefaults"] = self.upstream_defaults.to_dict()
+
+        if self.rich_upstreams:
+            project["upstreams"] = [ru.to_dict() for ru in self.rich_upstreams]
+
         if self.network_defaults is not None:
             project["networkDefaults"] = self.network_defaults.to_defaults_dict()
 
