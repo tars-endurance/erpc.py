@@ -1,0 +1,3 @@
+# Failsafe
+
+::: erpc.failsafe

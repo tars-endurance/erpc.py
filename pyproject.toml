@@ -129,4 +129,5 @@ markers = [
     "unit: fast tests with no I/O, fully mocked (run on every commit)",
     "integration: end-to-end tests requiring a real eRPC binary",
     "slow: tests taking more than 1 second",
+    "fault_tolerance: fault tolerance and crash recovery tests",
 ]
