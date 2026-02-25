@@ -26,9 +26,9 @@ jobs:
         run: |
           ERPC_VERSION="0.0.62"
           curl -fSL "https://github.com/erpc/erpc/releases/download/${ERPC_VERSION}/erpc_linux_x86_64" \
-            -o erpc
-          chmod +x erpc
-          sudo mv erpc /usr/local/bin/erpc
+            -o /tmp/erpc-binary
+          chmod +x /tmp/erpc-binary
+          sudo mv /tmp/erpc-binary /usr/local/bin/erpc
           erpc --version || echo "eRPC installed (version flag may not exist)"
 
       - name: Install Python dependencies
