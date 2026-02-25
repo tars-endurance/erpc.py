@@ -149,13 +149,14 @@ class TestERPCLogStream:
         stream.start()
         assert stream.is_alive()
 
+        # Close write end first so the read iterator hits EOF,
+        # then signal stop. Without this, the read blocks indefinitely
+        # on some Python versions (3.14+) even after stream.close().
+        os.close(write_fd)
         stream.stop()
         stream.join(timeout=2)
 
         assert not stream.is_alive()
-        # Clean up write end (ignore if already closed)
-        with contextlib.suppress(OSError):
-            os.close(write_fd)
 
 
 class TestLoggingMixin:

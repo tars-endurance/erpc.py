@@ -39,4 +39,4 @@ jobs:
 
       - name: Run integration tests
         run: |
-          pytest tests/integration/ -v -m integration --no-header
+          pytest tests/integration/ -v -m integration --no-header --no-cov

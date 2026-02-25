@@ -9,7 +9,7 @@ Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRP
 [![PyPI](https://img.shields.io/pypi/v/erpc-py)](https://pypi.org/project/erpc-py/)
 [![CI](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml/badge.svg)](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/tars-endurance/erpc.py/branch/main/graph/badge.svg)](https://codecov.io/gh/tars-endurance/erpc.py)
-[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://pypi.org/project/erpc-py/)
+[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](https://pypi.org/project/erpc-py/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![mypy](https://img.shields.io/badge/type--checked-mypy%20strict-blue)](https://mypy-lang.org/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
