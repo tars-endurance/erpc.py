@@ -1,5 +1,6 @@
 """erpc.py — Python subprocess manager for eRPC."""
 
+from erpc.auth import AuthConfig, JWTAuth, NetworkAuth, SecretAuth, SIWEAuth
 from erpc.config import CacheConfig, ERPCConfig
 from erpc.database import (
     CachePolicy,
@@ -33,6 +34,7 @@ from erpc.providers import (
     TenderlyProvider,
     ThirdwebProvider,
 )
+from erpc.server import CORSConfig, MetricsConfig, ServerConfig
 from erpc.exceptions import (
     ERPCConfigError,
     ERPCError,
@@ -48,8 +50,10 @@ from erpc.process import ERPCProcess
 __all__ = [
     "AlchemyProvider",
     "AnkrProvider",
+    "AuthConfig",
     "BlastAPIProvider",
     "BlockPiProvider",
+    "CORSConfig",
     "CacheConfig",
     "CachePolicy",
     "ChainstackProvider",
@@ -71,8 +75,11 @@ __all__ = [
     "ERPCStartupError",
     "EtherspotProvider",
     "InfuraProvider",
+    "JWTAuth",
     "LoggingMixin",
     "MemoryConnector",
+    "MetricsConfig",
+    "NetworkAuth",
     "OnFinalityProvider",
     "PimlicoProvider",
     "PostgresConnector",
@@ -81,6 +88,9 @@ __all__ = [
     "RedisConnector",
     "RepositoryProvider",
     "RouteMeshProvider",
+    "SecretAuth",
+    "SIWEAuth",
+    "ServerConfig",
     "SuperchainProvider",
     "TenderlyProvider",
     "ThirdwebProvider",

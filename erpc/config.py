@@ -16,7 +16,10 @@ from erpc.providers import Provider
 from erpc.upstreams import UpstreamConfig
 
 if TYPE_CHECKING:
+    from erpc.auth import AuthConfig
     from erpc.database import DatabaseConfig
+
+from erpc.server import MetricsConfig, ServerConfig
 
 
 @dataclass
@@ -42,12 +45,15 @@ class ERPCConfig:
     Args:
         project_id: Unique project identifier for eRPC routing.
         upstreams: Mapping of chain ID to list of RPC endpoint URLs.
-        server_host: eRPC server bind address.
-        server_port: eRPC server listen port.
-        metrics_host: Metrics endpoint bind address.
-        metrics_port: Metrics endpoint listen port.
+        server_host: eRPC server bind address (legacy, use ``server`` instead).
+        server_port: eRPC server listen port (legacy, use ``server`` instead).
+        metrics_host: Metrics endpoint bind address (legacy, use ``metrics`` instead).
+        metrics_port: Metrics endpoint listen port (legacy, use ``metrics`` instead).
         log_level: Logging verbosity (trace, debug, info, warn, error).
         cache: Memory cache configuration.
+        server: Full server configuration. Takes precedence over ``server_host``/``server_port``.
+        metrics: Full metrics configuration. Takes precedence over
+            ``metrics_host``/``metrics_port``.
         upstream_defaults: Default configuration applied to all upstreams.
         rich_upstreams: List of fully-configured UpstreamConfig objects.
 
@@ -67,6 +73,9 @@ class ERPCConfig:
     log_level: str = "warn"
     cache: CacheConfig = field(default_factory=CacheConfig)
     providers: list[Provider] = field(default_factory=list)
+    server: ServerConfig | None = None
+    metrics: MetricsConfig | None = None
+    auth: AuthConfig | None = None
     database: DatabaseConfig | None = None
     networks: list[NetworkConfig] = field(default_factory=list)
     network_defaults: NetworkConfig | None = None
@@ -178,9 +187,23 @@ class ERPCConfig:
             )
 
     @property
+    def _effective_host(self) -> str:
+        """Resolve the effective server host."""
+        if self.server is not None:
+            return self.server.http_host
+        return self.server_host
+
+    @property
+    def _effective_port(self) -> int:
+        """Resolve the effective server port."""
+        if self.server is not None:
+            return self.server.http_port
+        return self.server_port
+
+    @property
     def health_url(self) -> str:
         """HTTP URL for the eRPC health endpoint."""
-        return f"http://{self.server_host}:{self.server_port}/"
+        return f"http://{self._effective_host}:{self._effective_port}/"
 
     def endpoint_url(self, chain_id: int) -> str:
         """Get the proxied endpoint URL for a specific chain.
@@ -192,7 +215,10 @@ class ERPCConfig:
             Full URL for the proxied RPC endpoint.
 
         """
-        return f"http://{self.server_host}:{self.server_port}/{self.project_id}/evm/{chain_id}"
+        return (
+            f"http://{self._effective_host}:{self._effective_port}"
+            f"/{self.project_id}/evm/{chain_id}"
+        )
 
     def to_yaml(self) -> str:
         """Generate eRPC YAML configuration string.
@@ -201,18 +227,28 @@ class ERPCConfig:
             YAML-formatted configuration document.
 
         """
-        doc: dict[str, Any] = {
-            "logLevel": self.log_level,
-            "server": {
+        if self.server is not None:
+            server_dict = self.server.to_dict()
+        else:
+            server_dict = {
                 "httpHost": self.server_host,
                 "httpPort": self.server_port,
                 "maxTimeout": "60s",
-            },
-            "metrics": {
+            }
+
+        if self.metrics is not None:
+            metrics_dict = self.metrics.to_dict()
+        else:
+            metrics_dict = {
                 "enabled": True,
                 "host": self.metrics_host,
                 "port": self.metrics_port,
-            },
+            }
+
+        doc: dict[str, Any] = {
+            "logLevel": self.log_level,
+            "server": server_dict,
+            "metrics": metrics_dict,
             "projects": [self._build_project()],
         }
         return yaml.dump(doc, default_flow_style=False, sort_keys=False)
@@ -297,6 +333,9 @@ class ERPCConfig:
                     }
                 ]
             }
+
+        if self.auth is not None:
+            project["auth"] = self.auth.to_dict()
 
         return project
 
