@@ -4,7 +4,7 @@ import argparse
 import sys
 
 
-def main():
+def main() -> None:
     """Run the erpc-py CLI."""
     parser = argparse.ArgumentParser(prog="python -m erpc", description="erpc-py CLI")
     sub = parser.add_subparsers(dest="command")
