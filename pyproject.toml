@@ -7,10 +7,11 @@ name = "erpc-py"
 version = "0.1.0"
 description = "Python subprocess manager for eRPC — fault-tolerant EVM RPC proxy"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 authors = [
     {name = "TARS", email = "tars@endurance.sh"},
+    {name = "Kieran Prasch", email = "kieran@thethirdroom.com"},
 ]
 keywords = [
     "ethereum",
@@ -26,7 +27,6 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
@@ -54,6 +54,7 @@ dev = [
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
 ]
 
 [project.urls]
@@ -124,5 +125,7 @@ disallow_untyped_defs = false
 testpaths = ["tests"]
 addopts = "--cov=erpc --cov-report=term-missing --cov-report=html --cov-fail-under=90 -m 'not integration'"
 markers = [
-    "integration: end-to-end tests requiring an eRPC binary",
+    "unit: fast tests with no I/O, fully mocked (run on every commit)",
+    "integration: end-to-end tests requiring a real eRPC binary",
+    "slow: tests taking more than 1 second",
 ]

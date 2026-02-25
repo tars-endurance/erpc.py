@@ -6,6 +6,7 @@
 
 Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRPC.
 
+[![PyPI](https://img.shields.io/pypi/v/erpc-py)](https://pypi.org/project/erpc-py/)
 [![CI](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml/badge.svg)](https://github.com/tars-endurance/erpc.py/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/tars-endurance/erpc.py/branch/main/graph/badge.svg)](https://codecov.io/gh/tars-endurance/erpc.py)
 [![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://pypi.org/project/erpc-py/)
