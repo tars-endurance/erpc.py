@@ -19,7 +19,7 @@ class TestGetPlatformBinaryName:
             patch("platform.system", return_value="Linux"),
             patch("platform.machine", return_value="x86_64"),
         ):
-            assert get_platform_binary_name() == "erpc_linux_amd64"
+            assert get_platform_binary_name() == "erpc_linux_x86_64"
 
     def test_linux_arm64(self) -> None:
         with (
@@ -33,7 +33,7 @@ class TestGetPlatformBinaryName:
             patch("platform.system", return_value="Darwin"),
             patch("platform.machine", return_value="x86_64"),
         ):
-            assert get_platform_binary_name() == "erpc_darwin_amd64"
+            assert get_platform_binary_name() == "erpc_darwin_x86_64"
 
     def test_darwin_arm64(self) -> None:
         with (
@@ -63,7 +63,7 @@ class TestInstallErpc:
     def test_downloads_binary(self, tmp_path: Path) -> None:
         """Verify download URL construction and executable permissions."""
         with (
-            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_x86_64"),
             patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
         ):
             # urlretrieve writes a file; simulate by creating it in the callback
@@ -79,7 +79,7 @@ class TestInstallErpc:
 
             assert result == dest
             mock_retrieve.assert_called_once_with(
-                "https://github.com/erpc/erpc/releases/download/0.0.62/erpc_linux_amd64",
+                "https://github.com/erpc/erpc/releases/download/0.0.62/erpc_linux_x86_64",
                 str(dest),
             )
             # Check executable bit is set
@@ -92,7 +92,7 @@ class TestInstallErpc:
         expected_hash = hashlib.sha256(binary_content).hexdigest()
 
         with (
-            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_x86_64"),
             patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
         ):
 
@@ -108,7 +108,7 @@ class TestInstallErpc:
     def test_checksum_mismatch(self, tmp_path: Path) -> None:
         """Raises ERPCError when checksum doesn't match."""
         with (
-            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_x86_64"),
             patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
         ):
 
@@ -131,7 +131,7 @@ class TestInstallErpc:
         assert not nested.exists()
 
         with (
-            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_x86_64"),
             patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
         ):
 
@@ -148,7 +148,7 @@ class TestInstallErpc:
     def test_cleans_up_on_checksum_failure(self, tmp_path: Path) -> None:
         """Removes downloaded file when checksum verification fails."""
         with (
-            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_amd64"),
+            patch("erpc.install.get_platform_binary_name", return_value="erpc_linux_x86_64"),
             patch("erpc.install.urllib.request.urlretrieve") as mock_retrieve,
         ):
 

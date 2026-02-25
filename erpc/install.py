@@ -22,9 +22,9 @@ GITHUB_RELEASES_URL = "https://github.com/erpc/erpc/releases/download"
 """Base URL for eRPC GitHub release artifacts."""
 
 PLATFORM_MAP: dict[tuple[str, str], str] = {
-    ("Linux", "x86_64"): "erpc_linux_amd64",
+    ("Linux", "x86_64"): "erpc_linux_x86_64",
     ("Linux", "aarch64"): "erpc_linux_arm64",
-    ("Darwin", "x86_64"): "erpc_darwin_amd64",
+    ("Darwin", "x86_64"): "erpc_darwin_x86_64",
     ("Darwin", "arm64"): "erpc_darwin_arm64",
 }
 """Mapping of ``(system, machine)`` to release artifact names."""
@@ -41,7 +41,7 @@ def get_platform_binary_name() -> str:
 
     Examples:
         >>> get_platform_binary_name()  # On Linux x86_64
-        'erpc_linux_amd64'
+        'erpc_linux_x86_64'
 
     """
     key = (platform.system(), platform.machine())
