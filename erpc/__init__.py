@@ -45,6 +45,7 @@ from erpc.exceptions import (
 )
 from erpc.logging import ERPCLogStream
 from erpc.mixins import LoggingMixin
+from erpc.monitoring import HealthEvent, HealthMonitor, HealthStatus
 from erpc.process import ERPCProcess
 
 __all__ = [
@@ -74,6 +75,9 @@ __all__ = [
     "ERPCProcess",
     "ERPCStartupError",
     "EtherspotProvider",
+    "HealthEvent",
+    "HealthMonitor",
+    "HealthStatus",
     "InfuraProvider",
     "JWTAuth",
     "LoggingMixin",

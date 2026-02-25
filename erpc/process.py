@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from pathlib import Path
     from types import TracebackType
 
+    from erpc.client import ERPCClient
+
 logger = logging.getLogger(__name__)
 
 ERPC_BINARY = "erpc"
@@ -108,6 +110,7 @@ class ERPCProcess:
 
     _proc: subprocess.Popen[bytes] | None = None
     _config_path: Path | None = None
+    _client: ERPCClient | None = None
 
     def __init__(
         self,
@@ -176,6 +179,25 @@ class ERPCProcess:
     def endpoint(self) -> str:
         """Base eRPC endpoint URL."""
         return f"http://{self.config.server_host}:{self.config.server_port}"
+
+    @property
+    def client(self) -> ERPCClient:
+        """Return an :class:`~erpc.client.ERPCClient` pointed at this instance.
+
+        The client is lazily created and cached for the lifetime of the process.
+
+        Returns:
+            An HTTP client configured with this instance's server and metrics URLs.
+
+        """
+        if self._client is None:
+            from erpc.client import ERPCClient
+
+            self._client = ERPCClient(
+                base_url=self.endpoint,
+                metrics_port=self.config.metrics_port,
+            )
+        return self._client
 
     def endpoint_url(self, chain_id: int) -> str:
         """Get the proxied endpoint URL for a specific chain.
