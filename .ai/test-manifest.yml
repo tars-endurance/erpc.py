@@ -1,0 +1,122 @@
+modules:
+  erpc/process.py:
+    tests: tests/unit/test_process.py
+    coverage_target: 95
+    complexity: high
+
+  erpc/async_process.py:
+    tests: tests/unit/test_async_process.py
+    coverage_target: 95
+    complexity: high
+
+  erpc/docker.py:
+    tests: tests/unit/test_docker.py
+    coverage_target: 90
+    complexity: high
+
+  erpc/config.py:
+    tests:
+      - tests/unit/test_config.py
+      - tests/unit/test_config_loading.py
+    coverage_target: 95
+    complexity: high
+
+  erpc/server.py:
+    tests: tests/unit/test_server.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/networks.py:
+    tests: tests/unit/test_networks.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/providers.py:
+    tests: tests/unit/test_providers.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/upstreams.py:
+    tests: tests/unit/test_upstreams.py
+    coverage_target: 90
+    complexity: low
+
+  erpc/failsafe.py:
+    tests: tests/unit/test_failsafe.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/rate_limiters.py:
+    tests: tests/unit/test_rate_limiters.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/database.py:
+    tests: tests/unit/test_database.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/auth.py:
+    tests: tests/unit/test_auth.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/client.py:
+    tests: tests/unit/test_client.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/monitoring.py:
+    tests: tests/unit/test_monitoring.py
+    coverage_target: 85
+    complexity: medium
+
+  erpc/dynamic.py:
+    tests: tests/unit/test_dynamic.py
+    coverage_target: 90
+    complexity: medium
+
+  erpc/install.py:
+    tests: tests/unit/test_install.py
+    coverage_target: 85
+    complexity: low
+
+  erpc/cli.py:
+    tests: tests/unit/test_cli.py
+    coverage_target: 85
+    complexity: low
+
+  erpc/logging.py:
+    tests: tests/unit/test_logging.py
+    coverage_target: 85
+    complexity: low
+
+  erpc/exceptions.py:
+    tests: tests/unit/test_exceptions.py
+    coverage_target: 90
+    complexity: low
+
+  erpc/version.py:
+    tests: tests/unit/test_version.py
+    coverage_target: 85
+    complexity: low
+
+  erpc/mixins.py:
+    tests: null  # Tested indirectly through consuming modules
+    coverage_target: 90
+    complexity: low
+
+integration:
+  tests/integration/test_proxy.py:
+    requires: erpc binary
+    modules: [erpc/process.py, erpc/client.py, erpc/config.py]
+
+  tests/unit/test_fault_tolerance.py:
+    marker: fault_tolerance
+    modules: [erpc/process.py, erpc/monitoring.py]
+
+markers:
+  unit: "Fast, no I/O, every push"
+  integration: "Real binary, nightly/manual"
+  fault_tolerance: "Crash/recovery scenarios"
+  slow: "Tests >1s"

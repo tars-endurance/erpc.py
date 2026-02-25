@@ -22,7 +22,7 @@ def minimal_yaml(tmp_path: Path) -> Path:
     """Write a minimal valid erpc.yaml and return its path."""
     doc = {
         "logLevel": "warn",
-        "server": {"httpHost": "127.0.0.1", "httpPort": 4000, "maxTimeout": "60s"},
+        "server": {"httpHostV4": "127.0.0.1", "httpPort": 4000, "maxTimeout": "60s"},
         "metrics": {"enabled": True, "host": "127.0.0.1", "port": 4001},
         "projects": [
             {
@@ -41,7 +41,7 @@ def full_yaml(tmp_path: Path) -> Path:
     """Write a full-featured erpc.yaml and return its path."""
     doc = {
         "logLevel": "debug",
-        "server": {"httpHost": "0.0.0.0", "httpPort": 8080, "maxTimeout": "120s"},
+        "server": {"httpHostV4": "0.0.0.0", "httpPort": 8080, "maxTimeout": "120s"},
         "metrics": {"enabled": True, "host": "0.0.0.0", "port": 9090},
         "projects": [
             {
@@ -157,7 +157,7 @@ class TestFromDict:
         """Construct ERPCConfig from a plain dictionary."""
         data = {
             "logLevel": "info",
-            "server": {"httpHost": "0.0.0.0", "httpPort": 9000},
+            "server": {"httpHostV4": "0.0.0.0", "httpPort": 9000},
             "projects": [
                 {
                     "id": "dict-project",
@@ -203,7 +203,8 @@ class TestRoundTrip:
         assert reloaded.metrics_host == original.metrics_host
         assert reloaded.metrics_port == original.metrics_port
         assert reloaded.log_level == original.log_level
-        assert reloaded.cache.max_items == original.cache.max_items
+        # Cache config is no longer serialized to YAML (removed cacheConfig)
+        # so we don't assert cache round-trip here.
 
 
 # ── Validation tests ─────────────────────────────────────────────────────────

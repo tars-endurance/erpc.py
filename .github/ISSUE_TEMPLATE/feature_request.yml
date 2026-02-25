@@ -1,32 +1,69 @@
 name: Feature Request
-description: Suggest a new feature for erpc.py
+description: Propose a new feature or enhancement
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
-  - type: markdown
-    attributes:
-      value: Thanks for suggesting a feature! Please describe your idea below.
   - type: textarea
-    id: problem
+    id: summary
     attributes:
-      label: Problem
-      description: What problem does this feature solve?
+      label: Summary
+      description: What do you want to add or change?
     validations:
       required: true
+
   - type: textarea
-    id: solution
+    id: motivation
     attributes:
-      label: Proposed Solution
-      description: How would you like this to work?
+      label: Motivation
+      description: Why is this needed? What problem does it solve?
     validations:
       required: true
+
   - type: textarea
-    id: alternatives
+    id: implementation
     attributes:
-      label: Alternatives Considered
-      description: Any alternative approaches you've considered.
+      label: Proposed Implementation
+      description: How should this be implemented? Which files/classes would change?
+      placeholder: |
+        - Add new dataclass in erpc/providers.py
+        - Wire into ERPCConfig.to_dict()
+        - Add tests in tests/unit/test_providers.py
+    validations:
+      required: false
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Affected Module(s)
+      description: Which module(s) would this touch?
+      multiple: true
+      options:
+        - erpc/process.py
+        - erpc/async_process.py
+        - erpc/docker.py
+        - erpc/config.py
+        - erpc/server.py
+        - erpc/networks.py
+        - erpc/providers.py
+        - erpc/upstreams.py
+        - erpc/failsafe.py
+        - erpc/rate_limiters.py
+        - erpc/database.py
+        - erpc/auth.py
+        - erpc/client.py
+        - erpc/monitoring.py
+        - erpc/dynamic.py
+        - erpc/install.py
+        - erpc/cli.py
+        - New module
+    validations:
+      required: false
+
   - type: textarea
-    id: context
+    id: test_expectations
     attributes:
-      label: Additional Context
-      description: Any other context, screenshots, or examples.
+      label: Test Expectations
+      description: What tests should accompany this feature?
+      placeholder: "e.g., Unit tests for serialization, integration test for end-to-end behavior"
+    validations:
+      required: false

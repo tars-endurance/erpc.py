@@ -138,14 +138,22 @@ class ERPCConfig:
         server = data.get("server", {})
         metrics = data.get("metrics", {})
 
-        # Parse upstreams from networks
+        # Parse upstreams from project-level upstreams list
         upstreams: dict[int, list[str]] = {}
-        for network in project.get("networks", []):
-            evm = network.get("evm", {})
+        for upstream in project.get("upstreams", []):
+            evm = upstream.get("evm", {})
             chain_id = evm.get("chainId")
             if chain_id is not None:
-                endpoints = [u["endpoint"] for u in network.get("upstreams", [])]
-                upstreams[chain_id] = endpoints
+                upstreams.setdefault(chain_id, []).append(upstream["endpoint"])
+
+        # Fallback: parse upstreams from networks (legacy format)
+        if not upstreams:
+            for network in project.get("networks", []):
+                evm = network.get("evm", {})
+                chain_id = evm.get("chainId")
+                if chain_id is not None:
+                    endpoints = [u["endpoint"] for u in network.get("upstreams", [])]
+                    upstreams[chain_id] = endpoints
 
         # Parse cache config
         cache_config = CacheConfig()
@@ -159,9 +167,9 @@ class ERPCConfig:
         return cls(
             project_id=project.get("id", "py-erpc"),
             upstreams=upstreams,
-            server_host=server.get("httpHost", "127.0.0.1"),
+            server_host=server.get("httpHostV4", server.get("httpHost", "127.0.0.1")),
             server_port=server.get("httpPort", 4000),
-            metrics_host=metrics.get("host", "127.0.0.1"),
+            metrics_host=metrics.get("hostV4", metrics.get("host", "127.0.0.1")),
             metrics_port=metrics.get("port", 4001),
             log_level=data.get("logLevel", "warn"),
             cache=cache_config,
@@ -230,7 +238,7 @@ class ERPCConfig:
             server_dict = self.server.to_dict()
         else:
             server_dict = {
-                "httpHost": self.server_host,
+                "httpHostV4": self.server_host,
                 "httpPort": self.server_port,
                 "maxTimeout": "60s",
             }
@@ -240,7 +248,7 @@ class ERPCConfig:
         else:
             metrics_dict = {
                 "enabled": True,
-                "host": self.metrics_host,
+                "hostV4": self.metrics_host,
                 "port": self.metrics_port,
             }
 
@@ -281,13 +289,15 @@ class ERPCConfig:
         net_configs: dict[int, NetworkConfig] = {n.chain_id: n for n in self.networks}
 
         networks: list[dict[str, Any]] = []
+        all_upstreams: list[dict[str, Any]] = []
+
         for chain_id, endpoints in self.upstreams.items():
-            upstreams: list[dict[str, str]] = []
             for i, url in enumerate(endpoints):
-                upstreams.append(
+                all_upstreams.append(
                     {
                         "endpoint": url,
                         "id": f"upstream-{chain_id}-{i}",
+                        "evm": {"chainId": chain_id},
                     }
                 )
 
@@ -300,8 +310,6 @@ class ERPCConfig:
                     "evm": {"chainId": chain_id},
                 }
 
-            network["upstreams"] = upstreams
-
             if self.cache.method_ttls:
                 network["policies"] = self._build_cache_policies()
 
@@ -310,13 +318,14 @@ class ERPCConfig:
         project: dict[str, Any] = {
             "id": self.project_id,
             "networks": networks,
+            "upstreams": all_upstreams,
         }
 
         if self.upstream_defaults is not None:
             project["upstreamDefaults"] = self.upstream_defaults.to_dict()
 
         if self.rich_upstreams:
-            project["upstreams"] = [ru.to_dict() for ru in self.rich_upstreams]
+            project["upstreams"].extend(ru.to_dict() for ru in self.rich_upstreams)
 
         if self.network_defaults is not None:
             project["networkDefaults"] = self.network_defaults.to_defaults_dict()
@@ -326,16 +335,6 @@ class ERPCConfig:
 
         if self.database is not None:
             project["database"] = self.database.to_dict()
-        elif self.cache.max_items > 0:
-            project["cacheConfig"] = {
-                "connectors": [
-                    {
-                        "id": "memory-cache",
-                        "driver": "memory",
-                        "memory": {"maxItems": self.cache.max_items},
-                    }
-                ]
-            }
 
         if self.auth is not None:
             project["auth"] = self.auth.to_dict()

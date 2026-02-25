@@ -56,7 +56,7 @@ class TestServerConfigCustom:
         config = ServerConfig()
         d = config.to_dict()
         assert d == {
-            "httpHost": "127.0.0.1",
+            "httpHostV4": "127.0.0.1",
             "httpPort": 4000,
             "maxTimeout": "60s",
         }
@@ -71,7 +71,7 @@ class TestServerConfigCustom:
         )
         d = config.to_dict()
         assert d == {
-            "httpHost": "0.0.0.0",
+            "httpHostV4": "0.0.0.0",
             "httpPort": 9000,
             "maxTimeout": "30s",
             "enableGzip": True,
@@ -168,7 +168,7 @@ class TestERPCConfigServerIntegration:
         """Legacy server_host/server_port still work."""
         config = ERPCConfig(server_host="10.0.0.1", server_port=5000)
         doc = yaml.safe_load(config.to_yaml())
-        assert doc["server"]["httpHost"] == "10.0.0.1"
+        assert doc["server"]["httpHostV4"] == "10.0.0.1"
         assert doc["server"]["httpPort"] == 5000
 
     def test_server_config_overrides_simple_fields(self) -> None:
@@ -179,7 +179,7 @@ class TestERPCConfigServerIntegration:
             server=ServerConfig(http_host="0.0.0.0", http_port=9000),
         )
         doc = yaml.safe_load(config.to_yaml())
-        assert doc["server"]["httpHost"] == "0.0.0.0"
+        assert doc["server"]["httpHostV4"] == "0.0.0.0"
         assert doc["server"]["httpPort"] == 9000
 
     def test_metrics_config_overrides_simple_fields(self) -> None:

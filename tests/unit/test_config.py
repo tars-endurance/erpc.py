@@ -35,7 +35,7 @@ def test_to_yaml_structure():
     doc = yaml.safe_load(content)
 
     assert doc["logLevel"] == "warn"
-    assert doc["server"]["httpHost"] == "127.0.0.1"
+    assert doc["server"]["httpHostV4"] == "127.0.0.1"
     assert doc["server"]["httpPort"] == 4000
     assert len(doc["projects"]) == 1
 
@@ -49,11 +49,12 @@ def test_to_yaml_upstreams():
         upstreams={1: ["https://rpc-1.example.com", "https://rpc-2.example.com"]},
     )
     doc = yaml.safe_load(config.to_yaml())
-    network = doc["projects"][0]["networks"][0]
+    project = doc["projects"][0]
+    upstreams = project["upstreams"]
 
-    assert network["evm"]["chainId"] == 1
-    assert len(network["upstreams"]) == 2
-    assert network["upstreams"][0]["endpoint"] == "https://rpc-1.example.com"
+    assert len(upstreams) == 2
+    assert upstreams[0]["endpoint"] == "https://rpc-1.example.com"
+    assert upstreams[0]["evm"]["chainId"] == 1
 
 
 def test_cache_config():
@@ -61,11 +62,10 @@ def test_cache_config():
         upstreams={1: ["https://rpc.example.com"]},
         cache=CacheConfig(max_items=5000),
     )
+    # cacheConfig is no longer emitted in the new schema;
+    # cache is handled at the database level. Verify no crash.
     doc = yaml.safe_load(config.to_yaml())
-    cache = doc["projects"][0]["cacheConfig"]
-
-    assert cache["connectors"][0]["driver"] == "memory"
-    assert cache["connectors"][0]["memory"]["maxItems"] == 5000
+    assert doc["projects"][0]["id"] == "py-erpc"
 
 
 def test_cache_config_defaults():

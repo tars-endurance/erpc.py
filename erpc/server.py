@@ -8,7 +8,7 @@ Examples:
     >>> from erpc.server import ServerConfig, MetricsConfig, CORSConfig
     >>> server = ServerConfig(http_host="0.0.0.0", http_port=8080)
     >>> server.to_dict()
-    {'httpHost': '0.0.0.0', 'httpPort': 8080, 'maxTimeout': '60s'}
+    {'httpHostV4': '0.0.0.0', 'httpPort': 8080, 'maxTimeout': '60s'}
 
 """
 
@@ -95,7 +95,7 @@ class ServerConfig:
 
     Examples:
         >>> server = ServerConfig(http_host="0.0.0.0", http_port=8080)
-        >>> server.to_dict()["httpHost"]
+        >>> server.to_dict()["httpHostV4"]
         '0.0.0.0'
 
     """
@@ -116,7 +116,7 @@ class ServerConfig:
 
         """
         d: dict[str, Any] = {
-            "httpHost": self.http_host,
+            "httpHostV4": self.http_host,
             "httpPort": self.http_port,
             "maxTimeout": self.max_timeout,
         }
