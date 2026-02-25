@@ -529,9 +529,7 @@ class TestDockerFaultTolerance:
         """is_running returns False if docker inspect fails (daemon down)."""
         docker_proc._container_id = "abc123"
 
-        with patch(
-            "subprocess.run", side_effect=subprocess.CalledProcessError(1, "docker")
-        ):
+        with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "docker")):
             assert docker_proc.is_running is False
 
     def test_docker_inspect_os_error(self, docker_proc: DockerERPCProcess) -> None:
@@ -551,9 +549,7 @@ class TestDockerFaultTolerance:
         with pytest.raises(ERPCNotRunning):
             docker_proc.stop()
 
-    def test_docker_restart_after_crash(
-        self, docker_proc: DockerERPCProcess
-    ) -> None:
+    def test_docker_restart_after_crash(self, docker_proc: DockerERPCProcess) -> None:
         """restart() works after container crash."""
         docker_proc._container_id = "dead123"
 
@@ -572,9 +568,7 @@ class TestDockerFaultTolerance:
             docker_proc.start()
             assert docker_proc._container_id == "newcontainer123"
 
-    def test_docker_health_check_timeout(
-        self, docker_proc: DockerERPCProcess
-    ) -> None:
+    def test_docker_health_check_timeout(self, docker_proc: DockerERPCProcess) -> None:
         """wait_for_health raises on timeout with container still running."""
         docker_proc._container_id = "abc123"
 
@@ -587,9 +581,7 @@ class TestDockerFaultTolerance:
         ):
             docker_proc.wait_for_health(timeout=1)
 
-    def test_docker_stop_handles_rm_failure(
-        self, docker_proc: DockerERPCProcess
-    ) -> None:
+    def test_docker_stop_handles_rm_failure(self, docker_proc: DockerERPCProcess) -> None:
         """stop() handles docker rm failure gracefully."""
         docker_proc._container_id = "abc123"
 
