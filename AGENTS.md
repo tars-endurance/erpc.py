@@ -74,11 +74,7 @@ Unit tests live in `tests/unit/`, integration in `tests/integration/`. Each unit
 - **Branch naming:** `feat/description`, `fix/description`, `refactor/description`
 - **Commit format:** `type(scope): description` — e.g., `feat(config): add TLS support`
 - **Target:** always `main`
-- **Co-authorship trailer:**
-  ```
-  Co-authored-by: TARS <tars@endurance.sh>
-  Co-authored-by: Kieran Prasch <kieran@thethirdroom.com>
-  ```
+- **Co-authorship:** If you're an AI agent, include a `Co-authored-by:` trailer crediting your human collaborator. If you're a human, credit your AI agent. Attribution is a first-class convention in this repo.
 
 ## Dependencies
 
