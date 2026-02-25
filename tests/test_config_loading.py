@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import warnings
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import yaml
 
-from erpc.config import CacheConfig, ERPCConfig
+from erpc.config import ERPCConfig
 from erpc.exceptions import ERPCConfigError
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

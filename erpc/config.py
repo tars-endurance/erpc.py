@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 from erpc.exceptions import ERPCConfigError
-from erpc.networks import NetworkConfig
-from erpc.providers import Provider
-from erpc.upstreams import UpstreamConfig
 
 if TYPE_CHECKING:
     from erpc.auth import AuthConfig
     from erpc.database import DatabaseConfig
+    from erpc.networks import NetworkConfig
+    from erpc.providers import Provider
+    from erpc.server import MetricsConfig, ServerConfig
+    from erpc.upstreams import UpstreamConfig
 
-from erpc.server import MetricsConfig, ServerConfig
 
 
 @dataclass
