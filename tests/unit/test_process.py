@@ -34,6 +34,7 @@ class TestFindBinary:
         with (
             patch("shutil.which", return_value=None),
             patch("os.path.isfile", return_value=False),
+            patch("erpc.install.install_erpc", side_effect=ERPCNotFound("install failed")),
             pytest.raises(ERPCNotFound),
         ):
             find_erpc_binary("/nonexistent/erpc")

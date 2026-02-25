@@ -1,8 +1,8 @@
 """eRPC binary installation helpers.
 
 Inspired by `py-geth <https://github.com/ethereum/py-geth>`_'s install module.
-Handles cross-platform binary download from GitHub releases with optional
-SHA256 checksum verification.
+Handles cross-platform binary download from GitHub releases with automatic
+SHA256 checksum verification against the published ``checksums.txt``.
 """
 
 from __future__ import annotations
@@ -22,10 +22,11 @@ GITHUB_RELEASES_URL = "https://github.com/erpc/erpc/releases/download"
 """Base URL for eRPC GitHub release artifacts."""
 
 PLATFORM_MAP: dict[tuple[str, str], str] = {
-    ("Linux", "x86_64"): "erpc_linux_amd64",
+    ("Linux", "x86_64"): "erpc_linux_x86_64",
     ("Linux", "aarch64"): "erpc_linux_arm64",
-    ("Darwin", "x86_64"): "erpc_darwin_amd64",
+    ("Darwin", "x86_64"): "erpc_darwin_x86_64",
     ("Darwin", "arm64"): "erpc_darwin_arm64",
+    ("Windows", "AMD64"): "erpc_windows_x86_64.exe",
 }
 """Mapping of ``(system, machine)`` to release artifact names."""
 
@@ -41,7 +42,7 @@ def get_platform_binary_name() -> str:
 
     Examples:
         >>> get_platform_binary_name()  # On Linux x86_64
-        'erpc_linux_amd64'
+        'erpc_linux_x86_64'
 
     """
     key = (platform.system(), platform.machine())
@@ -64,7 +65,7 @@ def verify_checksum(path: Path, expected_sha256: str) -> None:
         ERPCError: If the checksum does not match.
 
     Examples:
-        >>> verify_checksum(Path("/usr/local/bin/erpc"), "abc123...")
+        >>> verify_checksum(Path("/usr/local/bin/erpc"), "72108e2a968dbd...")
 
     """
     sha256 = hashlib.sha256()
@@ -76,6 +77,30 @@ def verify_checksum(path: Path, expected_sha256: str) -> None:
         raise ERPCError(f"Checksum mismatch for {path}: expected {expected_sha256}, got {actual}")
 
 
+def fetch_checksums(version: str) -> dict[str, str]:
+    """Fetch checksums.txt from a GitHub release and parse it.
+
+    Args:
+        version: Release version tag (e.g., ``"0.0.62"``).
+
+    Returns:
+        Mapping of ``{filename: sha256_hex_digest}``.
+
+    Raises:
+        urllib.error.URLError: If the checksums file cannot be fetched.
+
+    """
+    url = f"{GITHUB_RELEASES_URL}/{version}/checksums.txt"
+    with urllib.request.urlopen(url, timeout=10) as resp:
+        text = resp.read().decode("utf-8")
+    checksums: dict[str, str] = {}
+    for line in text.strip().splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            checksums[parts[1]] = parts[0]
+    return checksums
+
+
 def install_erpc(
     version: str | None = None,
     install_dir: str = "/usr/local/bin",
@@ -84,12 +109,17 @@ def install_erpc(
 ) -> Path:
     """Download and install eRPC binary from GitHub releases.
 
+    Downloads the binary and automatically verifies its SHA256 checksum
+    against the ``checksums.txt`` published alongside each release.
+
     Args:
         version: Release version tag (e.g., ``"0.0.62"``). Defaults to
             :data:`erpc.ERPC_VERSION` — the pinned compatible version.
         install_dir: Directory to install the binary. Created if it doesn't exist.
         binary_name: Name for the installed binary.
-        checksum: Optional SHA256 hex digest for verification.
+        checksum: Explicit SHA256 hex digest. Overrides the auto-fetched
+            checksum from the release. Rarely needed — the default
+            auto-verification is sufficient for most use cases.
 
     Returns:
         Path to the installed binary.
@@ -98,10 +128,7 @@ def install_erpc(
         ERPCError: If the platform is unsupported or checksum verification fails.
 
     Examples:
-        >>> install_erpc()  # installs pinned version
-        PosixPath('/usr/local/bin/erpc')
-
-        >>> install_erpc("0.0.62", checksum="abc123...")
+        >>> install_erpc()  # downloads, verifies checksum, installs
         PosixPath('/usr/local/bin/erpc')
 
     """
@@ -115,12 +142,25 @@ def install_erpc(
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / binary_name
 
+    # Resolve checksum: explicit parameter > auto-fetch from release
+    if checksum is None:
+        try:
+            checksums = fetch_checksums(version)
+            checksum = checksums.get(artifact)
+            if checksum:
+                logger.info("Auto-fetched SHA256 checksum for %s", artifact)
+            else:
+                logger.warning("Artifact %s not found in checksums.txt", artifact)
+        except Exception as e:
+            logger.warning("Could not fetch checksums.txt: %s", e)
+
     logger.info("Downloading eRPC %s from %s", version, url)
     urllib.request.urlretrieve(url, str(dest))
 
     if checksum is not None:
         try:
             verify_checksum(dest, checksum)
+            logger.info("SHA256 checksum verified for %s", artifact)
         except ERPCError:
             dest.unlink(missing_ok=True)
             raise
