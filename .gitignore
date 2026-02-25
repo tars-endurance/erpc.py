@@ -1,12 +1,40 @@
+# Python
 __pycache__/
+*.py[cod]
 *.egg-info/
 dist/
 build/
-.eggs/
-*.pyc
-.pytest_cache/
+*.egg
+
+# Environment
+.env*
 .venv/
-.coverage
+venv/
+
+# Secrets
+*.pem
+*.key
+*.p12
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Type checking / lint
+.mypy_cache/
+.ruff_cache/
+
+# Testing
 htmlcov/
+.coverage
 coverage.xml
+.pytest_cache/
+
+# Docs
 site/
+
+# OS
+.DS_Store
+Thumbs.db
