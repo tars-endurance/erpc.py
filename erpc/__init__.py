@@ -12,6 +12,7 @@ from erpc.database import (
     RedisConnector,
     TLSConfig,
 )
+from erpc.docker import DockerERPCProcess
 from erpc.providers import (
     AlchemyProvider,
     AnkrProvider,
@@ -61,6 +62,7 @@ __all__ = [
     "CompressionConfig",
     "ConduitProvider",
     "DatabaseConfig",
+    "DockerERPCProcess",
     "DrpcProvider",
     "DwellirProvider",
     "DynamoDBConnector",
