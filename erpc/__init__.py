@@ -29,6 +29,7 @@ from erpc.exceptions import (
     ERPCNotRunning,
     ERPCStartupError,
 )
+from erpc.install import install_erpc
 from erpc.failsafe import (
     CircuitBreakerPolicy,
     FailsafeConfig,
@@ -113,6 +114,7 @@ __all__ = [
     "HealthStatus",
     "HedgePolicy",
     "InfuraProvider",
+    "install_erpc",
     "JWTAuth",
     "LoggingMixin",
     "MemoryConnector",
