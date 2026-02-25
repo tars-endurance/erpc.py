@@ -65,7 +65,7 @@ def verify_checksum(path: Path, expected_sha256: str) -> None:
         ERPCError: If the checksum does not match.
 
     Examples:
-        >>> verify_checksum(Path("/usr/local/bin/erpc"), "abc123...")
+        >>> verify_checksum(Path("/usr/local/bin/erpc"), "72108e2a968dbd...")
 
     """
     sha256 = hashlib.sha256()
