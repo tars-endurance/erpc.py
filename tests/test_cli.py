@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -221,3 +222,102 @@ class TestStopCommand:
         with patch("erpc.cli.PID_FILE", "/tmp/nonexistent-erpc-test.pid"):
             rc = args.func(args)
         assert rc == 1
+
+    def test_stop_sends_sigterm(self, tmp_path: Path) -> None:
+        """stop sends SIGTERM and prints success message."""
+        pid_file = tmp_path / "erpc-py.pid"
+        pid_file.write_text("12345")
+
+        parser = build_parser()
+        args = parser.parse_args(["stop"])
+
+        with (
+            patch("erpc.cli.PID_FILE", str(pid_file)),
+            patch("os.kill") as mock_kill,
+        ):
+            rc = args.func(args)
+        assert rc == 0
+        mock_kill.assert_called_once_with(12345, signal.SIGTERM)
+
+    def test_stop_permission_error(self, tmp_path: Path) -> None:
+        """stop returns 1 on PermissionError."""
+        pid_file = tmp_path / "erpc-py.pid"
+        pid_file.write_text("12345")
+
+        parser = build_parser()
+        args = parser.parse_args(["stop"])
+
+        with (
+            patch("erpc.cli.PID_FILE", str(pid_file)),
+            patch("os.kill", side_effect=PermissionError),
+        ):
+            rc = args.func(args)
+        assert rc == 1
+
+
+class TestVersionCommandDirect:
+    """Direct invocation tests for _cmd_version."""
+
+    def test_version_erpc_found(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Shows eRPC version when found."""
+        parser = build_parser()
+        args = parser.parse_args(["version"])
+        with patch("erpc.cli.get_erpc_version", return_value="0.0.62"):
+            rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "0.0.62" in out
+
+    def test_version_erpc_not_found(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Shows 'not found' when eRPC is missing."""
+        parser = build_parser()
+        args = parser.parse_args(["version"])
+        with patch("erpc.cli.get_erpc_version", return_value=None):
+            rc = args.func(args)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "not found" in out
+
+
+class TestInstallCommandFailure:
+    """Tests for install failure path."""
+
+    def test_install_failure(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """install returns 1 on exception."""
+        parser = build_parser()
+        args = parser.parse_args(["install", "--version", "0.0.62"])
+        with patch("erpc.cli.install_erpc", side_effect=RuntimeError("download failed")):
+            rc = args.func(args)
+        assert rc == 1
+        assert "download failed" in capsys.readouterr().err
+
+
+class TestStartCommandFailures:
+    """Tests for start failure paths."""
+
+    def test_start_binary_not_found(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """start returns 1 when binary not found."""
+        config_file = tmp_path / "erpc.yaml"
+        config_file.write_text("logLevel: warn\n")
+        parser = build_parser()
+        args = parser.parse_args(["start", "--config", str(config_file)])
+        with patch("erpc.cli.find_erpc_binary", side_effect=FileNotFoundError("not found")):
+            rc = args.func(args)
+        assert rc == 1
+
+
+class TestMainEntryPoint:
+    """Tests for the main() entry point."""
+
+    def test_main_calls_sys_exit(self) -> None:
+        """main() parses args and calls sys.exit."""
+        with (
+            patch("erpc.cli.build_parser") as mock_parser,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_args = MagicMock()
+            mock_args.func.return_value = 0
+            mock_parser.return_value.parse_args.return_value = mock_args
+            from erpc.cli import main
+            main()
+        mock_exit.assert_called_once_with(0)

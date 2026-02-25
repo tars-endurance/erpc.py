@@ -1,0 +1,42 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install eRPC binary
+        run: |
+          ERPC_VERSION="0.0.51"
+          curl -fSL "https://github.com/erpc/erpc/releases/download/${ERPC_VERSION}/erpc_${ERPC_VERSION}_linux_amd64.tar.gz" \
+            -o erpc.tar.gz
+          tar xzf erpc.tar.gz
+          chmod +x erpc
+          sudo mv erpc /usr/local/bin/erpc
+          erpc --version || echo "eRPC installed (version flag may not exist)"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v -m integration --no-header

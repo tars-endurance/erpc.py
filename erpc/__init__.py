@@ -13,6 +13,22 @@ from erpc.database import (
     TLSConfig,
 )
 from erpc.docker import DockerERPCProcess
+from erpc.dynamic import (
+    ConfigDiff,
+    add_upstream,
+    atomic_write_config,
+    remove_upstream,
+    update_config,
+)
+from erpc.failsafe import (
+    CircuitBreakerPolicy,
+    FailsafeConfig,
+    FailsafePresets,
+    HedgePolicy,
+    MethodFailsafeConfig,
+    RetryPolicy,
+    TimeoutPolicy,
+)
 from erpc.exceptions import (
     ERPCConfigError,
     ERPCError,
@@ -22,6 +38,14 @@ from erpc.exceptions import (
     ERPCStartupError,
 )
 from erpc.logging import ERPCLogStream
+from erpc.rate_limiters import (
+    AutoTuneConfig,
+    MemoryStore,
+    RateLimiterConfig,
+    RateLimitBudget,
+    RateLimitRule,
+    RedisStore,
+)
 from erpc.mixins import LoggingMixin
 from erpc.monitoring import HealthEvent, HealthMonitor, HealthStatus
 from erpc.process import ERPCProcess
@@ -51,6 +75,7 @@ from erpc.server import CORSConfig, MetricsConfig, ServerConfig
 
 __all__ = [
     "AlchemyProvider",
+    "AutoTuneConfig",
     "AnkrProvider",
     "AuthConfig",
     "BlastAPIProvider",
@@ -58,6 +83,8 @@ __all__ = [
     "CORSConfig",
     "CacheConfig",
     "CachePolicy",
+    "CircuitBreakerPolicy",
+    "ConfigDiff",
     "ChainstackProvider",
     "CompressionConfig",
     "ConduitProvider",
@@ -67,6 +94,8 @@ __all__ = [
     "DwellirProvider",
     "DynamoDBConnector",
     "ERPCConfig",
+    "FailsafeConfig",
+    "FailsafePresets",
     "ERPCConfigError",
     "ERPCError",
     "ERPCHealthCheckError",
@@ -77,6 +106,7 @@ __all__ = [
     "ERPCStartupError",
     "EnvioProvider",
     "EtherspotProvider",
+    "HedgePolicy",
     "HealthEvent",
     "HealthMonitor",
     "HealthStatus",
@@ -84,12 +114,19 @@ __all__ = [
     "JWTAuth",
     "LoggingMixin",
     "MemoryConnector",
+    "MemoryStore",
+    "MethodFailsafeConfig",
     "MetricsConfig",
     "NetworkAuth",
     "OnFinalityProvider",
     "PimlicoProvider",
     "PostgresConnector",
     "Provider",
+    "RateLimiterConfig",
+    "RateLimitBudget",
+    "RateLimitRule",
+    "RedisStore",
+    "RetryPolicy",
     "QuickNodeProvider",
     "RedisConnector",
     "RepositoryProvider",
@@ -100,7 +137,12 @@ __all__ = [
     "SuperchainProvider",
     "TLSConfig",
     "TenderlyProvider",
+    "TimeoutPolicy",
     "ThirdwebProvider",
+    "add_upstream",
+    "atomic_write_config",
+    "remove_upstream",
+    "update_config",
 ]
 
 __version__ = "0.1.0"

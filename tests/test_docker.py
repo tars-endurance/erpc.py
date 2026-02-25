@@ -310,3 +310,136 @@ class TestContextManager:
         mock_start.assert_called_once()
         mock_health.assert_called_once()
         mock_stop.assert_called_once()
+
+
+class TestEndpoints:
+    """Tests for endpoint URL properties."""
+
+    def test_endpoint(self, docker_proc: DockerERPCProcess) -> None:
+        """endpoint returns base URL."""
+        url = docker_proc.endpoint
+        assert "4000" in url
+        assert url.startswith("http://")
+
+    def test_endpoint_url(self, docker_proc: DockerERPCProcess) -> None:
+        """endpoint_url returns chain-specific URL."""
+        url = docker_proc.endpoint_url(1)
+        assert "/evm/1" in url
+        assert url.startswith("http://")
+
+
+class TestStartFailure:
+    """Tests for start() failure path."""
+
+    def test_start_docker_run_fails(self, docker_proc: DockerERPCProcess) -> None:
+        """ERPCError when docker run fails."""
+        with (
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, "docker", stderr="error msg"),
+            ),
+            pytest.raises(ERPCError, match="Failed to start"),
+        ):
+            docker_proc.start()
+
+
+class TestStopFailures:
+    """Tests for stop() failure handling."""
+
+    def test_stop_docker_stop_fails(self, docker_proc: DockerERPCProcess) -> None:
+        """stop() continues when docker stop fails."""
+        docker_proc._container_id = "abc123"
+
+        call_count = 0
+
+        def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise subprocess.CalledProcessError(1, "docker")
+            return MagicMock()
+
+        with patch("subprocess.run", side_effect=side_effect):
+            docker_proc.stop()
+
+        assert docker_proc.container_id is None
+
+    def test_stop_docker_rm_fails(self, docker_proc: DockerERPCProcess) -> None:
+        """stop() continues when docker rm fails."""
+        docker_proc._container_id = "abc123"
+
+        call_count = 0
+
+        def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise subprocess.CalledProcessError(1, "docker")
+            return MagicMock()
+
+        with patch("subprocess.run", side_effect=side_effect):
+            docker_proc.stop()
+
+        assert docker_proc.container_id is None
+
+
+class TestWaitForHealthPaths:
+    """Tests for wait_for_health edge cases."""
+
+    def test_wait_for_health_container_stopped(self, docker_proc: DockerERPCProcess) -> None:
+        """ERPCError when container stops during health check."""
+        docker_proc._container_id = "abc123"
+
+        with (
+            patch(
+                "subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, "docker"),
+            ),
+            patch("time.sleep"),
+            pytest.raises(ERPCError, match="stopped during health check"),
+        ):
+            docker_proc.wait_for_health(timeout=2)
+
+    def test_wait_for_health_success(self, docker_proc: DockerERPCProcess) -> None:
+        """wait_for_health returns when healthy."""
+        docker_proc._container_id = "abc123"
+
+        with (
+            patch.object(
+                type(docker_proc),
+                "is_running",
+                new_callable=lambda: property(lambda s: True),
+            ),
+            patch.object(
+                type(docker_proc),
+                "is_healthy",
+                new_callable=lambda: property(lambda s: True),
+            ),
+        ):
+            docker_proc.wait_for_health(timeout=5)
+
+
+class TestCleanup:
+    """Tests for _cleanup method."""
+
+    def test_cleanup_removes_config_file(self, docker_proc: DockerERPCProcess, tmp_path) -> None:
+        """_cleanup removes temp config file."""
+        config_file = tmp_path / "erpc.yaml"
+        config_file.write_text("test")
+        docker_proc._config_path = config_file
+        docker_proc._container_id = "abc123"
+
+        docker_proc._cleanup()
+
+        assert not config_file.exists()
+        assert docker_proc._config_path is None
+        assert docker_proc._container_id is None
+
+    def test_cleanup_handles_missing_file(self, docker_proc: DockerERPCProcess, tmp_path) -> None:
+        """_cleanup handles already-deleted config file."""
+        docker_proc._config_path = tmp_path / "nonexistent.yaml"
+        docker_proc._container_id = "abc123"
+
+        docker_proc._cleanup()
+
+        assert docker_proc._config_path is None
