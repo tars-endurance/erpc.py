@@ -13,6 +13,7 @@ Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRP
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![mypy](https://img.shields.io/badge/type--checked-mypy%20strict-blue)](https://mypy-lang.org/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://docs.astral.sh/ruff/)
+[![eRPC](https://img.shields.io/badge/eRPC-v0.0.62-orange)](https://github.com/erpc/erpc/releases/tag/0.0.62)
 
 </div>
 
@@ -20,6 +21,23 @@ Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRP
 
 > [!NOTE]
 > **This repository was built entirely by an AI agent** ([TARS](https://github.com/tars-endurance)) under the direction of a human engineer ([Kieran Prasch](https://github.com/KPrasch)). Every commit is co-authored. The architecture, priorities, and quality bar were set by a human; the implementation, tests, and documentation were produced by an AI — from first scaffold to 451 tests at 98% coverage. We believe this is how software will increasingly be built: human intent, machine execution, shared accountability.
+
+---
+
+## Compatibility
+
+| erpc.py | eRPC binary | Status |
+|---------|-------------|--------|
+| `0.1.x` | [`v0.0.62`](https://github.com/erpc/erpc/releases/tag/0.0.62) | ✅ Current |
+
+erpc.py pins a specific eRPC binary version (`erpc.ERPC_VERSION`). All config generation, tests, and CI target this version. Use `install_erpc()` to install the matching binary automatically.
+
+```python
+from erpc import ERPC_VERSION, install_erpc
+
+print(ERPC_VERSION)  # "0.0.62"
+install_erpc()       # downloads the pinned version
+```
 
 ---
 

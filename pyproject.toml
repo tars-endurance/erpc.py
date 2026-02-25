@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "erpc-py"
 version = "0.1.0"
-description = "Python subprocess manager for eRPC — fault-tolerant EVM RPC proxy"
+description = "Python subprocess manager for eRPC v0.0.62 — fault-tolerant EVM RPC proxy"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
