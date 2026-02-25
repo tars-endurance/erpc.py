@@ -18,6 +18,11 @@ Like [py-geth](https://github.com/ethereum/py-geth) for Go-Ethereum, but for eRP
 
 ---
 
+> [!NOTE]
+> **This repository was built entirely by an AI agent** ([TARS](https://github.com/tars-endurance)) under the direction of a human engineer ([Kieran Prasch](https://github.com/KPrasch)). Every commit is co-authored. The architecture, priorities, and quality bar were set by a human; the implementation, tests, and documentation were produced by an AI — from first scaffold to 451 tests at 98% coverage. We believe this is how software will increasingly be built: human intent, machine execution, shared accountability.
+
+---
+
 ## Overview
 
 **erpc.py** gives you full programmatic control over [eRPC](https://github.com/erpc/erpc) from Python — binary installation, YAML config generation, process lifecycle, health monitoring, and runtime metrics. Pure Python with only `pyyaml` as a runtime dependency.
