@@ -38,6 +38,7 @@ from erpc.failsafe import (
     RetryPolicy,
     TimeoutPolicy,
 )
+from erpc.install import install_erpc
 from erpc.logging import ERPCLogStream
 from erpc.mixins import LoggingMixin
 from erpc.monitoring import HealthEvent, HealthMonitor, HealthStatus
@@ -143,6 +144,7 @@ __all__ = [
     "TimeoutPolicy",
     "add_upstream",
     "atomic_write_config",
+    "install_erpc",
     "remove_upstream",
     "update_config",
 ]
