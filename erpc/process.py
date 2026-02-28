@@ -386,9 +386,14 @@ class ERPCProcess:
             r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
         )
 
-        # Also check for request success/failure rates
+        # Also check for request total/success/failure rates
+        total_pattern = re.compile(
+            r"erpc_requests_total"
+            r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
+        )
+
         success_pattern = re.compile(
-            r"erpc_requests_(?:total|success)"
+            r"erpc_requests_success"
             r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
         )
 
@@ -411,10 +416,17 @@ class ERPCProcess:
 
         # If no direct health metrics, infer from request patterns
         if not health_status:
+            total_counts: dict[tuple[int, str], float] = {}
             success_counts: dict[tuple[int, str], float] = {}
             error_counts: dict[tuple[int, str], float] = {}
 
             for metric_name, value in metrics.items():
+                total_match = total_pattern.search(metric_name)
+                if total_match:
+                    chain_id = int(total_match.group(1))
+                    upstream = total_match.group(2)
+                    total_counts[(chain_id, upstream)] = value
+
                 success_match = success_pattern.search(metric_name)
                 if success_match:
                     chain_id = int(success_match.group(1))
@@ -428,14 +440,26 @@ class ERPCProcess:
                     error_counts[(chain_id, upstream)] = value
 
             # Calculate health based on success/error ratios
-            all_upstreams = set(success_counts.keys()) | set(error_counts.keys())
+            # Derive successes from total - errors when only total is available
+            all_upstreams = (
+                set(total_counts.keys()) | set(success_counts.keys()) | set(error_counts.keys())
+            )
             for chain_id, upstream in all_upstreams:
-                successes = success_counts.get((chain_id, upstream), 0.0)
-                errors = error_counts.get((chain_id, upstream), 0.0)
-                total = successes + errors
+                key = (chain_id, upstream)
+                total = total_counts.get(key, 0.0)
+                errors = error_counts.get(key, 0.0)
+
+                if key in success_counts:
+                    successes = success_counts[key]
+                elif total > 0:
+                    successes = total - errors
+                else:
+                    successes = 0.0
+
+                denominator = total if total > 0 else (successes + errors)
 
                 # Consider healthy if success rate > 50% and has some activity
-                is_healthy = total > 0 and (successes / total) > 0.5
+                is_healthy = denominator > 0 and (successes / denominator) > 0.5
 
                 if chain_id not in health_status:
                     health_status[chain_id] = {}
