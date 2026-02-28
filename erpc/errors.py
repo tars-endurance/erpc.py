@@ -62,34 +62,35 @@ def parse_rpc_error(error_dict: dict[str, Any]) -> ErrorInfo:
 
     """
     code = error_dict.get("code", 0)
-    message = error_dict.get("message", "").lower()
+    raw_message = error_dict.get("message", "")
+    message = raw_message.lower()
 
     # Classify the error based on code and message patterns
     if code == -32603:
         if any(keyword in message for keyword in ["timeout", "timed out", "deadline"]):
-            return _build_timeout_error(code, message)
+            return _build_timeout_error(code, raw_message)
         elif "connection" in message and ("refused" in message or "failed" in message):
-            return _build_connection_error(code, message)
+            return _build_connection_error(code, raw_message)
         else:
-            return _build_internal_error(code, message)
+            return _build_internal_error(code, raw_message)
 
     elif code == -32000:
         if any(keyword in message for keyword in ["rate limit", "too many", "throttle"]):
-            return _build_rate_limit_error(code, message)
+            return _build_rate_limit_error(code, raw_message)
         else:
-            return _build_server_error(code, message)
+            return _build_server_error(code, raw_message)
 
     elif code == -32001:
-        return _build_unauthorized_error(code, message)
+        return _build_unauthorized_error(code, raw_message)
 
     elif code == -32002:
-        return _build_resource_error(code, message)
+        return _build_resource_error(code, raw_message)
 
     elif code in (-32700, -32600, -32601, -32602):
-        return _build_parse_error(code, message)
+        return _build_parse_error(code, raw_message)
 
     else:
-        return _build_unknown_error(code, message)
+        return _build_unknown_error(code, raw_message)
 
 
 def _build_timeout_error(code: int, message: str) -> ErrorInfo:
