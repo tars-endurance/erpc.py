@@ -21,6 +21,7 @@ from erpc.dynamic import (
     remove_upstream,
     update_config,
 )
+from erpc.errors import ErrorInfo, parse_rpc_error
 from erpc.exceptions import (
     ERPCConfigError,
     ERPCError,
@@ -99,13 +100,16 @@ __all__ = [
     "ERPCConfig",
     "ERPCConfigError",
     "ERPCError",
+    "ERPCErrorParser",
     "ERPCHealthCheckError",
     "ERPCLogStream",
     "ERPCNotFound",
     "ERPCNotRunning",
     "ERPCProcess",
     "ERPCStartupError",
+    "ERPCUpstreamError",
     "EnvioProvider",
+    "ErrorInfo",
     "EtherspotProvider",
     "FailsafeConfig",
     "FailsafePresets",
@@ -145,6 +149,7 @@ __all__ = [
     "add_upstream",
     "atomic_write_config",
     "install_erpc",
+    "parse_rpc_error",
     "remove_upstream",
     "update_config",
 ]

@@ -216,3 +216,170 @@ class TestERPCProcess:
         proc._proc = mock_popen
         proc.__exit__(None, None, None)
         assert proc._proc is None
+
+    def test_check_upstream_health_not_running(self, tmp_path):
+        """Test check_upstream_health when process is not running."""
+        proc = self._make_proc(tmp_path)
+        with pytest.raises(ERPCNotRunning):
+            proc.check_upstream_health()
+
+    def test_check_upstream_health_metrics_error(self, tmp_path):
+        """Test check_upstream_health when metrics fetch fails."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        mock_client = MagicMock()
+        mock_client.metrics.side_effect = ERPCHealthCheckError("connection failed")
+        proc._client = mock_client
+
+        with pytest.raises(ERPCHealthCheckError, match="Failed to fetch metrics"):
+            proc.check_upstream_health()
+
+    def test_check_upstream_health_with_health_metrics(self, tmp_path):
+        """Test check_upstream_health with direct health metrics."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        metrics = {
+            'erpc_upstream_health{chain_id="1",upstream="upstream_1"}': 1.0,
+            'erpc_upstream_health{chain_id="1",upstream="upstream_2"}': 0.0,
+            'erpc_upstream_health{chain_id="137",upstream="upstream_1"}': 1.0,
+        }
+
+        mock_client = MagicMock()
+        mock_client.metrics.return_value = metrics
+        proc._client = mock_client
+
+        result = proc.check_upstream_health()
+
+        expected = {
+            1: {"upstream_1": True, "upstream_2": False},
+            137: {"upstream_1": True},
+        }
+        assert result == expected
+
+    def test_check_upstream_health_with_status_metrics(self, tmp_path):
+        """Test check_upstream_health with status variation metrics."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        metrics = {
+            'erpc_upstream_status{chain_id="1",upstream="upstream_1"}': 1.0,
+            'erpc_upstream_available{chain_id="1",upstream="upstream_2"}': 0.0,
+        }
+
+        mock_client = MagicMock()
+        mock_client.metrics.return_value = metrics
+        proc._client = mock_client
+
+        result = proc.check_upstream_health()
+
+        expected = {1: {"upstream_1": True, "upstream_2": False}}
+        assert result == expected
+
+    def test_check_upstream_health_with_request_metrics(self, tmp_path):
+        """Test check_upstream_health inferring from request success/error rates."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        metrics = {
+            'erpc_requests_total{chain_id="1",upstream="upstream_1"}': 100.0,
+            'erpc_requests_failed{chain_id="1",upstream="upstream_1"}': 10.0,
+            'erpc_requests_success{chain_id="1",upstream="upstream_2"}': 20.0,
+            'erpc_requests_failed{chain_id="1",upstream="upstream_2"}': 80.0,
+            'erpc_requests_total{chain_id="137",upstream="upstream_1"}': 50.0,
+            'erpc_requests_failed{chain_id="137",upstream="upstream_1"}': 5.0,
+        }
+
+        mock_client = MagicMock()
+        mock_client.metrics.return_value = metrics
+        proc._client = mock_client
+
+        result = proc.check_upstream_health()
+
+        # upstream_1 on chain 1: 90% success (healthy)
+        # upstream_2 on chain 1: 20% success (unhealthy)
+        # upstream_1 on chain 137: 90% success (healthy)
+        expected = {
+            1: {"upstream_1": True, "upstream_2": False},
+            137: {"upstream_1": True},
+        }
+        assert result == expected
+
+    def test_check_upstream_health_no_activity(self, tmp_path):
+        """Test check_upstream_health with upstreams that have no activity."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        metrics = {
+            'erpc_requests_total{chain_id="1",upstream="upstream_1"}': 0.0,
+            'erpc_requests_failed{chain_id="1",upstream="upstream_1"}': 0.0,
+        }
+
+        mock_client = MagicMock()
+        mock_client.metrics.return_value = metrics
+        proc._client = mock_client
+
+        result = proc.check_upstream_health()
+
+        # No activity should be considered unhealthy
+        expected = {1: {"upstream_1": False}}
+        assert result == expected
+
+    def test_check_upstream_health_empty_metrics(self, tmp_path):
+        """Test check_upstream_health with empty metrics."""
+        proc = self._make_proc(tmp_path)
+        mock_popen = MagicMock()
+        mock_popen.poll.return_value = None
+        proc._proc = mock_popen
+
+        mock_client = MagicMock()
+        mock_client.metrics.return_value = {}
+        proc._client = mock_client
+
+        result = proc.check_upstream_health()
+
+        assert result == {}
+
+    def test_parse_upstream_health_metrics_complex(self, tmp_path):
+        """Test _parse_upstream_health_metrics with complex metric names."""
+        proc = self._make_proc(tmp_path)
+        metrics = {
+            'erpc_upstream_health{chain_id="1",upstream="upstream_1",status="active"}': 1.0,
+            'erpc_upstream_health{chain_id="1",upstream="upstream_2",status="inactive"}': 0.0,
+            'erpc_other_metric{chain_id="1"}': 42.0,  # Should be ignored
+            'erpc_upstream_health{chain_id="invalid",upstream="test"}': 1.0,  # Invalid chain_id
+        }
+
+        result = proc._parse_upstream_health_metrics(metrics)
+        expected = {1: {"upstream_1": True, "upstream_2": False}}
+        assert result == expected
+
+    def test_parse_upstream_health_metrics_edge_cases(self, tmp_path):
+        """Test _parse_upstream_health_metrics with edge case values."""
+        proc = self._make_proc(tmp_path)
+        metrics = {
+            'erpc_upstream_health{chain_id="1",upstream="upstream_1"}': 0.5,  # Positive but < 1
+            'erpc_upstream_health{chain_id="1",upstream="upstream_2"}': -1.0,  # Negative
+            'erpc_upstream_health{chain_id="1",upstream="upstream_3"}': 1.1,  # > 1
+        }
+
+        result = proc._parse_upstream_health_metrics(metrics)
+        expected = {
+            1: {
+                "upstream_1": True,  # 0.5 > 0.0
+                "upstream_2": False,  # -1.0 <= 0.0
+                "upstream_3": True,  # 1.1 > 0.0
+            }
+        }
+        assert result == expected

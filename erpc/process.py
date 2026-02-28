@@ -331,6 +331,118 @@ class ERPCProcess:
 
         raise ERPCHealthCheckError(f"eRPC did not become healthy within {timeout}s")
 
+    def check_upstream_health(self) -> dict[int, dict[str, bool]]:
+        """Check the health status of upstream endpoints per chain.
+
+        Scrapes the Prometheus metrics endpoint to determine which upstream
+        endpoints are healthy or unhealthy for each chain.
+
+        Returns:
+            Mapping of chain_id to upstream health status. Each chain maps to
+            a dict of upstream_id -> is_healthy boolean.
+
+        Raises:
+            ERPCNotRunning: If the eRPC process is not running.
+            ERPCHealthCheckError: If metrics cannot be fetched or parsed.
+
+        Examples:
+            >>> erpc.check_upstream_health()
+            {
+                1: {"upstream_1": True, "upstream_2": False},
+                137: {"upstream_1": True}
+            }
+
+        """
+        if not self.is_running:
+            raise ERPCNotRunning("Cannot check upstream health: eRPC is not running")
+
+        try:
+            metrics = self.client.metrics()
+        except ERPCHealthCheckError as exc:
+            raise ERPCHealthCheckError(f"Failed to fetch metrics for health check: {exc}") from exc
+
+        return self._parse_upstream_health_metrics(metrics)
+
+    def _parse_upstream_health_metrics(
+        self, metrics: dict[str, float]
+    ) -> dict[int, dict[str, bool]]:
+        """Parse Prometheus metrics to extract upstream health status.
+
+        Args:
+            metrics: Parsed Prometheus metrics from the eRPC instance.
+
+        Returns:
+            Mapping of chain_id to upstream health status.
+
+        """
+        import re
+
+        health_status: dict[int, dict[str, bool]] = {}
+
+        # Look for metrics that indicate upstream health
+        # Common patterns: erpc_upstream_health{chain_id="1",upstream="upstream_1"} 1.0
+        health_pattern = re.compile(
+            r"erpc_upstream_(?:health|status|available)"
+            r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
+        )
+
+        # Also check for request success/failure rates
+        success_pattern = re.compile(
+            r"erpc_requests_(?:total|success)"
+            r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
+        )
+
+        error_pattern = re.compile(
+            r"erpc_requests_(?:failed|error)"
+            r'\{.*?chain_id="(\d+)".*?upstream="([^"]+)".*?\}'
+        )
+
+        # Process health metrics directly
+        for metric_name, value in metrics.items():
+            match = health_pattern.search(metric_name)
+            if match:
+                chain_id = int(match.group(1))
+                upstream = match.group(2)
+                is_healthy = value > 0.0
+
+                if chain_id not in health_status:
+                    health_status[chain_id] = {}
+                health_status[chain_id][upstream] = is_healthy
+
+        # If no direct health metrics, infer from request patterns
+        if not health_status:
+            success_counts: dict[tuple[int, str], float] = {}
+            error_counts: dict[tuple[int, str], float] = {}
+
+            for metric_name, value in metrics.items():
+                success_match = success_pattern.search(metric_name)
+                if success_match:
+                    chain_id = int(success_match.group(1))
+                    upstream = success_match.group(2)
+                    success_counts[(chain_id, upstream)] = value
+
+                error_match = error_pattern.search(metric_name)
+                if error_match:
+                    chain_id = int(error_match.group(1))
+                    upstream = error_match.group(2)
+                    error_counts[(chain_id, upstream)] = value
+
+            # Calculate health based on success/error ratios
+            all_upstreams = set(success_counts.keys()) | set(error_counts.keys())
+            for chain_id, upstream in all_upstreams:
+                successes = success_counts.get((chain_id, upstream), 0.0)
+                errors = error_counts.get((chain_id, upstream), 0.0)
+                total = successes + errors
+
+                # Consider healthy if success rate > 50% and has some activity
+                is_healthy = total > 0 and (successes / total) > 0.5
+
+                if chain_id not in health_status:
+                    health_status[chain_id] = {}
+                health_status[chain_id][upstream] = is_healthy
+
+        return health_status
+
     def _cleanup(self) -> None:
         """Clean up temporary config files."""
         if self._config_path and self._config_path.exists():
